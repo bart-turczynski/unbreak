@@ -37,7 +37,11 @@ class Unbreak < Formula
   # runtime).
   bottle do
     root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.3.0"
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "PLACEHOLDER_REPLACED_BY_RELEASE_WORKFLOW_v0_3_0"
+    # Stale (the v0.2.0 bottle digest) until the v0.3.0 release workflow builds the
+    # bottle and the real block is wired in here + the tap. Must stay valid 64-hex:
+    # `brew install --build-bottle` parses the bottle block even though it ignores
+    # this digest while building, so a non-hex placeholder fails the release job.
+    sha256 cellar: :any_skip_relocation, arm64_ventura: "a35bef71d271ae76ca22efefd99b272aba714c144ec0f2f6896e9df582735e3d"
   end
 
   depends_on :macos
