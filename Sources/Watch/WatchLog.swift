@@ -1,5 +1,5 @@
-import UnbreakCore
 import Foundation
+import UnbreakCore
 
 /// Content-safe observability for watch mode (PRD v2 §7.3).
 ///

@@ -1,5 +1,5 @@
-import UnbreakCore
 import Foundation
+import UnbreakCore
 
 /// Loads `CCFixConfig` from the config file and `UNBREAK_*` environment overrides
 /// (PRD v2 §8.3).

@@ -1,5 +1,5 @@
-import UnbreakCore
 import Foundation
+import UnbreakCore
 
 /// User configuration for `unbreak` (PRD v2 §8.3).
 ///

@@ -1,7 +1,7 @@
-import UnbreakCore
 import Config
 import Foundation
 import Testing
+import UnbreakCore
 
 @testable import Setup
 

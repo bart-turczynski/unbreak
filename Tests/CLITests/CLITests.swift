@@ -1,6 +1,6 @@
-import UnbreakCore
 import Clipboard
 import Testing
+import UnbreakCore
 
 @testable import CLI
 

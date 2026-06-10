@@ -1,5 +1,5 @@
-import UnbreakCore
 import Foundation
+import UnbreakCore
 
 /// The opt-in fix-on-copy daemon's decision-and-act loop (PRD v2 §7).
 ///

@@ -1,5 +1,5 @@
-import UnbreakCore
 import Foundation
+import UnbreakCore
 
 #if canImport(AppKit)
 import AppKit

@@ -75,7 +75,7 @@ extension UndoCommand {
         case .empty:
             environment.writeStdout(
                 "unbreak: nothing to undo (no recent auto-fix, or it was cleared "
-                + "by a newer copy).\n"
+                    + "by a newer copy).\n"
             )
             return 0
         case .noDaemon:

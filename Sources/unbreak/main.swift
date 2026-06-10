@@ -1,9 +1,9 @@
-import UnbreakCore
 import CLI
 import Clipboard
 import Config
 import Foundation
 import Setup
+import UnbreakCore
 import Watch
 
 #if canImport(AppKit)

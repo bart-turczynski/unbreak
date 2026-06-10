@@ -1,6 +1,6 @@
-import UnbreakCore
 import Clipboard
 import Foundation
+import UnbreakCore
 
 /// The one-shot command-line surface (PRD v2 §8.1).
 ///

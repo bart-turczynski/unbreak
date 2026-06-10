@@ -1,6 +1,6 @@
-import UnbreakCore
 import Config
 import Foundation
+import UnbreakCore
 
 /// The setup-family subcommands (PRD v2 §8.2): the install wizard and the
 /// LaunchAgent lifecycle commands.

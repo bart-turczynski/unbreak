@@ -1,5 +1,5 @@
-import UnbreakCore
 import Testing
+import UnbreakCore
 
 @testable import Watch
 

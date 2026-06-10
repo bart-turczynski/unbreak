@@ -1,6 +1,6 @@
-import UnbreakCore
 import Clipboard
 import Foundation
+import UnbreakCore
 
 #if canImport(AppKit)
 import AppKit
