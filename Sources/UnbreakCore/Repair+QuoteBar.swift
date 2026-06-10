@@ -75,6 +75,16 @@ extension Repair {
         let heredoc = Heredoc.detect(lines)
         let widths = lines.map { DisplayWidth.width(of: $0, tabWidth: profile.tabWidth) }
         guard let w = widths.max(), w > 0 else { return text }
+        // The block's common left margin. A soft-wrap continuation returns to this
+        // margin; a line indented *beyond* it is intentional structure (a nested
+        // sub-item, an indented code line). Measured relative to the margin — not to
+        // column 0 — so a uniform render gutter (still present here; the §6.2
+        // whitespace de-gutter runs later in the loop) does not read every line as
+        // indented and block all merges.
+        let baseIndent =
+            lines.filter { !isBlank($0) }
+            .map { DisplayWidth.leadingWidth(of: $0, tabWidth: profile.tabWidth) }
+            .min() ?? 0
 
         func firstWordWidth(_ line: String) -> Int {
             let body = line.drop { $0 == " " || $0 == "\t" }
@@ -122,6 +132,13 @@ extension Repair {
                 // (Option A) subsume gate 6's table protection: even if a table ever
                 // reaches `reflowQuoted`, its rows never merge.
                 if containsBoxDrawing(lines[i]) || containsBoxDrawing(lines[i + 1]) { break }
+                // A continuation indented beyond the block's margin is intentional
+                // structure (nested sub-item / indented code), not a soft wrap.
+                if DisplayWidth.leadingWidth(of: lines[i + 1], tabWidth: profile.tabWidth)
+                    > baseIndent
+                {
+                    break
+                }
                 // The renderer wrapped here iff the next word overflowed line `i`.
                 let wouldOverflow = widths[i] + 1 + firstWordWidth(lines[i + 1]) > w
                 if wouldOverflow {
@@ -138,14 +155,35 @@ extension Repair {
     }
 
     /// Whether a block is a soft-wrapped prose/markdown *display box* worth
-    /// reflowing in the explicit CLI (Option A). A markdown list/heading block or a
-    /// prose paragraph reads as a rendered box the CLI wrapped to a fixed column. A
-    /// box-drawing table is structural chrome whose rows must never merge, so it is
-    /// excluded even when it otherwise reads as prose — defence in depth alongside
-    /// `reflowQuoted`'s own box-drawing seam guard.
-    static func isReflowableProse(_ text: String) -> Bool {
+    /// reflowing in the explicit CLI (Option A — CLAU-osmqojeq).
+    ///
+    /// This is a *trigger*, not a veto, so it is deliberately more permissive than
+    /// `Signals.structure` (which is tuned strict for the watch-mode gate-6 veto):
+    ///
+    ///  - **Any** list/heading marker opts a structured block in (not the veto's
+    ///    ≥2-marker dominance rule). The case reflow exists for is a *single*
+    ///    wrapped line among short structural siblings — exactly where §6.3 rejoin
+    ///    cannot establish a wrap column, and where a lone bullet (one marker)
+    ///    appears. A strict prose block also qualifies; a markerless natural-text
+    ///    block does **not** (it would risk merging adjacent code statements, and
+    ///    real wrapped prose already self-heals through §6.3 rejoin's width band).
+    ///  - A **width floor** demands evidence of real wrapping: the longest line must
+    ///    be at least a plausible wrap column wide. Without it, a block of short
+    ///    lines would treat its own longest line as "full" and spuriously merge.
+    ///  - A box-drawing **table** is structural chrome and never reflows.
+    ///
+    /// Permissiveness is safe because the merge decision still runs through
+    /// `reflowQuoted`'s word-fit test and its marker / indent / box-drawing seam
+    /// guards — the trigger only decides *whether to look*, never *what to merge*.
+    static func isReflowableProse(_ text: String, profile: WrapProfile) -> Bool {
         let s = Signals.structure(text)
-        return (s.markdownDominant || s.prose) && !s.tabular
+        if s.tabular { return false }
+        let lines = splitLines(text)
+        let maxWidth =
+            lines.map { DisplayWidth.width(of: $0, tabWidth: profile.tabWidth) }.max() ?? 0
+        guard maxWidth >= minTwoLineWrapColumn else { return false }
+        let hasMarker = lines.contains(where: Signals.startsWithMarkdownMarker)
+        return hasMarker || s.prose
     }
 
     /// True if the line carries a shell-chain operator — ` && `, ` || `, or ` | ` —

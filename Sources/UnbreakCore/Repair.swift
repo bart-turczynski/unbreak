@@ -37,10 +37,28 @@ public enum Repair {
         // clearly a wrapped display box. Both are gated: ordinary captures (and the
         // watcher, whose default leaves the flag off) keep the conservative §6.3 wrap
         // detection; only a confirmed quoted block or an opted-in prose box reflows.
-        let wantsProseReflow = options.reflowParagraphs && isReflowableProse(barStripped)
+        let wantsProseReflow =
+            options.reflowParagraphs && isReflowableProse(barStripped, profile: profile)
+        // De-gutter *before* reflow on the whitespace-guttered prose path (the bar
+        // path was already de-guttered by stripGutterBars). Reflow can collapse a
+        // block to a single line, after which the in-loop de-gutter — which needs ≥2
+        // lines — would never fire and the render gutter would survive on the lone
+        // reflowed line.
+        var reflowInput = barStripped
+        var preDegutterChanged = false
+        if wantsProseReflow && !barChanged {
+            let protectedLines = Heredoc.detect(splitLines(barStripped)).protectedLines
+            let (deg, dc) = degutter(
+                barStripped,
+                tabWidth: profile.tabWidth,
+                protected: protectedLines
+            )
+            reflowInput = deg
+            preDegutterChanged = dc
+        }
         let preprocessed =
             (barChanged || wantsProseReflow)
-            ? reflowQuoted(barStripped, profile: profile) : barStripped
+            ? reflowQuoted(reflowInput, profile: profile) : reflowInput
 
         // §6.4 + §6.8: iterate de-gutter → rejoin to a fixed point. One pass is not
         // idempotent — rejoin merges full lines, and on a fresh pass those merged
@@ -50,14 +68,14 @@ public enum Repair {
         // point, which is what makes `repair` idempotent. Heredocs are re-detected
         // each round because a merge upstream shifts body line indices.
         var working = preprocessed
-        var dedentChanged = barChanged
+        var dedentChanged = barChanged || preDegutterChanged
         // Track which kinds of structural change fired, to set `dedentOnly` for the
         // watch-mode safe-dedent fast path (§7.4). A quote-bar strip/reflow is a
         // non-dedent change, so it disqualifies the fast path from the start.
-        var sawDegutter = false
+        var sawDegutter = preDegutterChanged
         // A bar strip, or any reflow that actually merged lines, is a non-dedent
         // structural change — it disqualifies the §7.4 dedent-only fast path.
-        var sawRejoinOrReflow = barChanged || preprocessed != barStripped
+        var sawRejoinOrReflow = barChanged || preprocessed != reflowInput
         var firstConfidence = 0.0
         var firstWidth: Int?
         var heredocDetected = false
