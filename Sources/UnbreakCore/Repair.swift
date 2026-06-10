@@ -31,10 +31,16 @@ public enum Repair {
 
         // §6.2 (reflow): once a bar gutter is confirmed we know the block is a
         // display box the CLI soft-wrapped to a fixed column, so reflow each
-        // paragraph back to one line. This is gated behind `barChanged` on purpose —
-        // ordinary captures keep the conservative §6.3 wrap detection; only a
-        // confirmed quoted block opts into prose reflow.
-        let preprocessed = barChanged ? reflowQuoted(barStripped, profile: profile) : barStripped
+        // paragraph back to one line. The explicit one-shot CLI (Option A) opts a
+        // *whitespace*-guttered prose/markdown block in too via `reflowParagraphs` —
+        // the TUI hard-wrap case, where there is no `▎` bar but the block is just as
+        // clearly a wrapped display box. Both are gated: ordinary captures (and the
+        // watcher, whose default leaves the flag off) keep the conservative §6.3 wrap
+        // detection; only a confirmed quoted block or an opted-in prose box reflows.
+        let wantsProseReflow = options.reflowParagraphs && isReflowableProse(barStripped)
+        let preprocessed =
+            (barChanged || wantsProseReflow)
+            ? reflowQuoted(barStripped, profile: profile) : barStripped
 
         // §6.4 + §6.8: iterate de-gutter → rejoin to a fixed point. One pass is not
         // idempotent — rejoin merges full lines, and on a fresh pass those merged
@@ -49,7 +55,9 @@ public enum Repair {
         // watch-mode safe-dedent fast path (§7.4). A quote-bar strip/reflow is a
         // non-dedent change, so it disqualifies the fast path from the start.
         var sawDegutter = false
-        var sawRejoinOrReflow = barChanged
+        // A bar strip, or any reflow that actually merged lines, is a non-dedent
+        // structural change — it disqualifies the §7.4 dedent-only fast path.
+        var sawRejoinOrReflow = barChanged || preprocessed != barStripped
         var firstConfidence = 0.0
         var firstWidth: Int?
         var heredocDetected = false

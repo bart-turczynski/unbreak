@@ -93,8 +93,13 @@ extension Repair {
                     break
                 }
                 if isBlank(lines[i]) || isBlank(lines[i + 1]) { break }
-                // §6.3: an explicit continuation marks an intentional break.
-                if profile.continuationTokens.contains(where: { lines[i].hasSuffix($0) }) { break }
+                // In a soft-wrapped display box only an explicit backslash marks an
+                // intentional line continuation. The other §6.3 continuation tokens
+                // (a trailing `,` or `(`) are shell-layout signals — in prose they
+                // are ordinary mid-sentence wrap points, so unlike §6.3 `rejoin` they
+                // must NOT block a reflow, or every sentence that wrapped after a
+                // comma would stay broken.
+                if lines[i].hasSuffix("\\") { break }
                 // A line opening with a list marker is an intentional break, even
                 // when it is wide enough to read as a soft-wrapped continuation —
                 // the word-fit test alone cannot tell a long list item apart from a
@@ -109,6 +114,14 @@ extension Repair {
                 // (This guard lives only here: §6.3 `rejoin` must still rejoin a single
                 // piped command that wrapped across lines — F2.)
                 if isShellChain(lines[i]) || isShellChain(lines[i + 1]) { break }
+                // Box-drawing rows (tables, trees, panels) line up at a uniform
+                // width and so always read as a wrap to the word-fit test, but their
+                // newlines are structural — merging them smushes a table onto one
+                // line. Guard either side of the seam, mirroring §6.3 rejoin's
+                // `touchesBoxDrawing`. This is what lets the prose-reflow opt-in
+                // (Option A) subsume gate 6's table protection: even if a table ever
+                // reaches `reflowQuoted`, its rows never merge.
+                if containsBoxDrawing(lines[i]) || containsBoxDrawing(lines[i + 1]) { break }
                 // The renderer wrapped here iff the next word overflowed line `i`.
                 let wouldOverflow = widths[i] + 1 + firstWordWidth(lines[i + 1]) > w
                 if wouldOverflow {
@@ -122,6 +135,17 @@ extension Repair {
             i += 1
         }
         return out.joined(separator: "\n")
+    }
+
+    /// Whether a block is a soft-wrapped prose/markdown *display box* worth
+    /// reflowing in the explicit CLI (Option A). A markdown list/heading block or a
+    /// prose paragraph reads as a rendered box the CLI wrapped to a fixed column. A
+    /// box-drawing table is structural chrome whose rows must never merge, so it is
+    /// excluded even when it otherwise reads as prose — defence in depth alongside
+    /// `reflowQuoted`'s own box-drawing seam guard.
+    static func isReflowableProse(_ text: String) -> Bool {
+        let s = Signals.structure(text)
+        return (s.markdownDominant || s.prose) && !s.tabular
     }
 
     /// True if the line carries a shell-chain operator — ` && `, ` || `, or ` | ` —

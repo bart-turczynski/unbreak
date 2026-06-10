@@ -183,6 +183,51 @@ struct RepairTests {
         )
     }
 
+    // MARK: §6.2 Prose reflow opt-in (whitespace-guttered, no bar — Option A)
+
+    @Test("Off by default: a whitespace-guttered markdown block keeps the wrap break")
+    func proseReflowOffByDefault() {
+        // No `▎` bar, just a 2-space render gutter — the TUI hard-wrap case. With
+        // default options (the watcher's path) the wrapped item stays broken.
+        let input =
+            "  - first item that the renderer wrapped onto a second visual row,\n"
+            + "  continuing here\n"
+            + "  - second item"
+        let out = Repair.repair(input).text  // default: reflowParagraphs == false
+        #expect(
+            out == "- first item that the renderer wrapped onto a second visual row,\n"
+                + "continuing here\n"
+                + "- second item"
+        )
+    }
+
+    @Test("Opted in: the wrapped markdown item reflows; sibling bullets stay separate")
+    func proseReflowOptIn() {
+        let input =
+            "  - first item that the renderer wrapped onto a second visual row,\n"
+            + "  continuing here\n"
+            + "  - second item"
+        let out = Repair.repair(input, options: .init(reflowParagraphs: true)).text
+        #expect(
+            out == "- first item that the renderer wrapped onto a second visual row, "
+                + "continuing here\n"
+                + "- second item"
+        )
+    }
+
+    @Test("Opted in: a box-drawing table is never reflowed (subsumes the gate-6 guard)")
+    func proseReflowSkipsTable() {
+        // Uniform-width rows read as "full" to the word-fit test, but the seam guard
+        // keeps every row on its own line even with the opt-in active.
+        let input =
+            "┌──────────┬───────┐\n"
+            + "│ name     │ count │\n"
+            + "│ alpha    │ 12    │\n"
+            + "└──────────┴───────┘"
+        let out = Repair.repair(input, options: .init(reflowParagraphs: true)).text
+        #expect(out == input)
+    }
+
     @Test("List-marker detection: bullets and ordered markers vs flags")
     func listMarkerDetection() {
         #expect(Repair.startsWithListMarker("- item"))

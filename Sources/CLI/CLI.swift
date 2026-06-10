@@ -64,6 +64,8 @@ public enum CLI {
           unbreak --no-copy             print result + confidence, do not write (preview)
           unbreak --join-all            aggressive full-collapse fallback
           unbreak --width N             force the wrap column
+          unbreak --no-reflow           keep wrapped prose/markdown line-broken
+                                      (skip the §6.2 paragraph reflow, on by default)
           unbreak --split-padding-artifacts
                                       enable the lossy merge-artifact split (§6.5)
 
@@ -122,7 +124,11 @@ public enum CLI {
     /// deferred to `finish()` because `-` (stdin) must win over a positional
     /// regardless of the order they appear.
     private struct Builder {
-        var options = RepairOptions()
+        // The explicit one-shot CLI reflows soft-wrapped prose/markdown by default
+        // (Option A): the user asked, so a wrapped paragraph rejoins to one line.
+        // `--no-reflow` opts back out. The watcher never goes through here, so its
+        // default-options path keeps the conservative §6.3 behavior.
+        var options = RepairOptions(reflowParagraphs: true)
         var isStdin = false
         var literal: String?
         var noCopy = false
@@ -163,6 +169,7 @@ public enum CLI {
         "--dry-run-watch": { $0.dryRunWatch = true },
         "--join-all": { $0.options.joinAll = true },
         "--split-padding-artifacts": { $0.options.splitPaddingArtifacts = true },
+        "--no-reflow": { $0.options.reflowParagraphs = false },
     ]
 
     /// The injectable I/O surface `runOneShot` writes through, so the driver can

@@ -59,14 +59,23 @@ public struct RepairOptions: Sendable, Equatable {
     public var joinAll: Bool
     /// Lossy merge-artifact split — off by default (§6.5).
     public var splitPaddingArtifacts: Bool
+    /// Reflow a soft-wrapped prose/markdown *display box* back to one line per
+    /// paragraph, via the §6.2 word-fit test — not just `▎`-bar-quoted blocks but
+    /// any whitespace-guttered block the renderer wrapped to a fixed column (the
+    /// TUI hard-wrap case). **Off by default** so the corpus and the watcher (which
+    /// both repair with default options) keep the conservative §6.3 rejoin; the
+    /// explicit one-shot CLI opts in (Option A — the watcher never does).
+    public var reflowParagraphs: Bool
 
     public init(
         forcedWidth: Int? = nil,
         joinAll: Bool = false,
-        splitPaddingArtifacts: Bool = false
+        splitPaddingArtifacts: Bool = false,
+        reflowParagraphs: Bool = false
     ) {
         self.forcedWidth = forcedWidth
         self.joinAll = joinAll
         self.splitPaddingArtifacts = splitPaddingArtifacts
+        self.reflowParagraphs = reflowParagraphs
     }
 }

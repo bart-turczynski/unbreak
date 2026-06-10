@@ -54,9 +54,23 @@ struct CLIParseTests {
         return nil
     }
 
-    @Test("No arguments defaults to in-place clipboard repair")
+    @Test("No arguments defaults to in-place clipboard repair (with prose reflow on)")
     func defaults() {
-        #expect(run([]) == CLI.Arguments(source: .clipboard))
+        // The one-shot CLI opts into paragraph reflow by default (Option A); the
+        // struct's own default leaves it off, so spell the expectation out.
+        #expect(
+            run([])
+                == CLI.Arguments(
+                    source: .clipboard,
+                    options: RepairOptions(reflowParagraphs: true)
+                )
+        )
+    }
+
+    @Test("--no-reflow turns the default paragraph reflow back off")
+    func noReflow() {
+        #expect(run([])?.options.reflowParagraphs == true)
+        #expect(run(["--no-reflow"])?.options.reflowParagraphs == false)
     }
 
     @Test("A bare positional becomes the literal source")
