@@ -37,11 +37,11 @@ class Unbreak < Formula
   # runtime).
   bottle do
     root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.4.0"
-    # Carried over from v0.3.0 as a valid 64-hex PLACEHOLDER until release.yml
-    # rebuilds the v0.4.0 bottle and prints the real digest. It must stay valid hex
-    # even pre-build: the workflow's `brew install --build-bottle` parses this block
-    # (the v0.3.0 lesson — a bad placeholder failed the first tagged build).
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "bca6f35dc5685b04056f3b38208dc0ec3c4c4faf3965dd4e1d49699c6ff14f25"
+    # Real v0.4.0 bottle digest, produced by release.yml. On the NEXT bump keep a
+    # valid 64-hex value here even before rebuilding: the workflow's `brew install
+    # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
+    # failed the first tagged build).
+    sha256 cellar: :any_skip_relocation, arm64_ventura: "486bc0c1e5c6e83a874caf3a6ce2af1f685f7ca0a21a9cd98a75a7e197c6c6ef"
   end
 
   depends_on :macos
