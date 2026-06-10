@@ -1,0 +1,3 @@
+Continue the deferred-increments work in the semantic repo today; main is at the FR-24 merge and the lab contextual path landed, so the next increment is the full structural panel.
+
+Before starting, confirm the upstream blocker is resolved — if it is still open, scope the work down and note it as blocked.

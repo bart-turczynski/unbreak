@@ -20,6 +20,22 @@ public enum Repair {
     ) -> RepairResult {
         let normalized = normalize(input)
 
+        // §6.2 (quote-bar variant): strip a leading "quote bar" gutter (e.g. Claude
+        // Code's `  ▎ ` queued-prompt box) once, before the loop. The whitespace
+        // de-gutter below only removes spaces/tabs, so without this the bar survives
+        // on every line — and a residual `▎ ` prefix also throws off wrap detection,
+        // leaving the paste both ugly and unjoined. Stripping is idempotent (no line
+        // opens with the bar afterwards), so running it once outside the loop is
+        // sufficient and keeps `repair` a fixed point.
+        let (barStripped, barChanged) = stripGutterBars(normalized, profile: profile)
+
+        // §6.2 (reflow): once a bar gutter is confirmed we know the block is a
+        // display box the CLI soft-wrapped to a fixed column, so reflow each
+        // paragraph back to one line. This is gated behind `barChanged` on purpose —
+        // ordinary captures keep the conservative §6.3 wrap detection; only a
+        // confirmed quoted block opts into prose reflow.
+        let preprocessed = barChanged ? reflowQuoted(barStripped, profile: profile) : barStripped
+
         // §6.4 + §6.8: iterate de-gutter → rejoin to a fixed point. One pass is not
         // idempotent — rejoin merges full lines, and on a fresh pass those merged
         // lines can form a *new* dominant width that `detectWidth` would merge
@@ -27,8 +43,8 @@ public enum Repair {
         // only ever decrease), so it converges; the converged text is a true fixed
         // point, which is what makes `repair` idempotent. Heredocs are re-detected
         // each round because a merge upstream shifts body line indices.
-        var working = normalized
-        var dedentChanged = false
+        var working = preprocessed
+        var dedentChanged = barChanged
         var firstConfidence = 0.0
         var firstWidth: Int?
         var heredocDetected = false
@@ -234,7 +250,14 @@ public enum Repair {
                     lines[i].hasSuffix($0)
                 }
                 let nextNonBlank = !isBlank(lines[i + 1])
-                if options.joinAll || (isFull && !endsContinuation && nextNonBlank) {
+                // A line opening with a list marker (`- `, `* `, `1. `) is an
+                // intentional break — a markdown/prose list, never a wrap. Two list
+                // items can share a display width and otherwise read as "full", so
+                // without this they would wrongly collapse into one line. This binds
+                // even under joinAll: merging bullets is never what was meant.
+                let nextIsListItem = startsWithListMarker(lines[i + 1])
+                let isWrap = isFull && !endsContinuation && nextNonBlank
+                if !nextIsListItem && (options.joinAll || isWrap) {
                     current = joinSeam(current, lines[i + 1])
                     joins += 1
                     i += 1

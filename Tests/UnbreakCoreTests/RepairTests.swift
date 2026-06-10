@@ -59,6 +59,131 @@ struct RepairTests {
         #expect(out == "git push\n--force\norigin")
     }
 
+    // MARK: §6.2 Quote-bar gutter (Claude Code queued-prompt box)
+
+    @Test("Strips the `  ▎ ` quote-bar gutter from every line")
+    func stripsQuoteBarGutter() {
+        let input = "  ▎ first line\n  ▎ second line\n  ▎ third line"
+        let (out, changed) = Repair.stripGutterBars(input, profile: .claudeCode)
+        #expect(changed)
+        #expect(out == "first line\nsecond line\nthird line")
+    }
+
+    @Test("A bare `  ▎` separator line collapses to empty, preserving the paragraph break")
+    func stripsQuoteBarSeparatorLine() {
+        let input = "  ▎ one\n  ▎\n  ▎ two"
+        let (out, _) = Repair.stripGutterBars(input, profile: .claudeCode)
+        #expect(out == "one\n\ntwo")
+    }
+
+    @Test("Content past the single padding space keeps its own indentation")
+    func stripsQuoteBarKeepsContentIndent() {
+        // Only the margin + bar + one padding space is the gutter; further spaces
+        // are the content's own indentation and survive.
+        let input = "  ▎ def f():\n  ▎     return 1"
+        let (out, _) = Repair.stripGutterBars(input, profile: .claudeCode)
+        #expect(out == "def f():\n    return 1")
+    }
+
+    @Test("A stray bar glyph in ordinary content does not trigger stripping")
+    func leavesStrayBarUntouched() {
+        // Only one of three non-blank lines opens with a bar — below the two-thirds
+        // majority, so nothing is stripped ("when in doubt, don't act").
+        let input = "draw a ▎ here\nplain line two\nplain line three"
+        let (out, changed) = Repair.stripGutterBars(input, profile: .claudeCode)
+        #expect(!changed)
+        #expect(out == input)
+    }
+
+    @Test("A profile with no gutter bars never strips")
+    func noBarsConfiguredIsNoOp() {
+        let plain = WrapProfile(name: "plain", continuationTokens: [])
+        let input = "  ▎ one\n  ▎ two"
+        let (out, changed) = Repair.stripGutterBars(input, profile: plain)
+        #expect(!changed)
+        #expect(out == input)
+    }
+
+    @Test("Stripping the quote-bar gutter is idempotent through the full pipeline")
+    func quoteBarRepairIdempotent() {
+        let input = "  ▎ alpha bravo charlie\n  ▎ delta echo foxtrot"
+        let once = Repair.repair(input).text
+        let twice = Repair.repair(once).text
+        #expect(once == twice)
+        #expect(!once.contains("\u{258E}"))
+    }
+
+    // MARK: §6.2 Quote-bar reflow
+
+    @Test("A soft-wrapped paragraph in a bar block reflows to one line")
+    func reflowsWrappedParagraph() {
+        // Each next line's first word would not have fit above, so all are soft wraps.
+        let input =
+            "  ▎ the quick brown fox jumped over the\n"
+            + "  ▎ lazy dog while the whole sleepy town\n"
+            + "  ▎ kept dreaming."
+        let out = Repair.repair(input).text
+        #expect(
+            out == "the quick brown fox jumped over the lazy dog "
+                + "while the whole sleepy town kept dreaming."
+        )
+    }
+
+    @Test("Blank bar lines stay as paragraph breaks; each paragraph reflows on its own")
+    func reflowKeepsParagraphBreaks() {
+        let input =
+            "  ▎ alpha beta gamma delta epsilon zeta\n"
+            + "  ▎ eta theta.\n"
+            + "  ▎\n"
+            + "  ▎ iota kappa lambda mu nu xi omicron\n"
+            + "  ▎ pi rho."
+        let out = Repair.repair(input).text
+        #expect(
+            out == "alpha beta gamma delta epsilon zeta eta theta.\n\n"
+                + "iota kappa lambda mu nu xi omicron pi rho."
+        )
+    }
+
+    @Test("List items in a bar block survive, even when as wide as a wrapped line")
+    func reflowPreservesListItems() {
+        // No blank lines and each item is near the wrap width, so only the list
+        // marker distinguishes these intentional breaks from soft wraps.
+        let input =
+            "  ▎ Tasks to work through in priority order today:\n"
+            + "  ▎ - audit the tokenizer for the off-by-one slip\n"
+            + "  ▎ - add a regression test pinning the fixed output\n"
+            + "  ▎ - open the PR and link the tracking issue"
+        let out = Repair.repair(input).text
+        #expect(
+            out == "Tasks to work through in priority order today:\n"
+                + "- audit the tokenizer for the off-by-one slip\n"
+                + "- add a regression test pinning the fixed output\n"
+                + "- open the PR and link the tracking issue"
+        )
+    }
+
+    @Test("List-marker detection: bullets and ordered markers vs flags")
+    func listMarkerDetection() {
+        #expect(Repair.startsWithListMarker("- item"))
+        #expect(Repair.startsWithListMarker("  * item"))
+        #expect(Repair.startsWithListMarker("+ item"))
+        #expect(Repair.startsWithListMarker("1. item"))
+        #expect(Repair.startsWithListMarker("12) item"))
+        // A flag/option is NOT a bullet — no space after the dash run.
+        #expect(!Repair.startsWithListMarker("--workdir /work"))
+        #expect(!Repair.startsWithListMarker("-x"))
+        #expect(!Repair.startsWithListMarker("1.5 release"))
+        #expect(!Repair.startsWithListMarker("plain text"))
+    }
+
+    @Test("Reflow leaves a wrapped command's flags joinable (no false bullet)")
+    func reflowJoinsCommandFlags() {
+        // `--workdir` must not be read as a list marker, so the flag rejoins.
+        let input = "  ▎ docker run --rm --volume \"$PWD\":/work\n  ▎ --workdir /work img"
+        let out = Repair.repair(input).text
+        #expect(out == "docker run --rm --volume \"$PWD\":/work --workdir /work img")
+    }
+
     // MARK: §6.3 Rejoin
 
     @Test("Rejoins a word-boundary wrap with a single space (§5 case 1)")

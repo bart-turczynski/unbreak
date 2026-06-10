@@ -110,6 +110,7 @@ clipboard). The repair algorithm (§6) is designed against these, not assumption
 | 4 | **Unbreakable tokens not wrapped** (no space to break at) | 100-char URL stayed on one line | N/A — nothing to do |
 | 5 | **Long-line-then-short-line merge** behind a padding run | `…dedent"   [pad]   fi` then ⏎ `  fi` | **Low — partly lossy (§6.5)** |
 | 6 | **Intentional structure survives** | `\` continuations, heredoc body, internal `multiple    spaces` | Must be preserved untouched |
+| 7 | **Quote-bar gutter** on a queued-prompt / preview box | every line prefixed `  ▎ ` (U+258E) | High — strip the bar gutter + reflow paragraphs (§6.2) |
 
 Note the old tool's double-space bug (`>  /tmp`): word-boundary wraps must rejoin
 with exactly one space and collapse the duplicate.
@@ -147,6 +148,24 @@ Gemini/Codex as fast-follows.
 - Remove `G` columns from lines 2..n; remove `min(indent₁, G)` from line 1.
 - This strips the rendering gutter while **preserving relative indentation**
   (verified against Case 6 nesting).
+- **Quote-bar gutter (Case 7):** some surfaces draw a left margin *glyph* rather
+  than plain spaces — Claude Code's queued-prompt/preview box prefixes every line
+  with `  ▎ ` (U+258E). Before the whitespace dedent, strip a leading
+  `<whitespace>* <bar> <space>?` prefix (the bar is profile data, `gutterBars`).
+  Fire only when ≥2 non-blank lines carry the bar and they are a two-thirds
+  majority, so a stray `▎` in content never trips it; a bare `  ▎` separator line
+  collapses to empty, preserving the paragraph break. Left behind, the bar both
+  litters the paste and defeats §6.3 wrap detection.
+- **Reflow (quote-bar only):** a confirmed bar block is a display box the CLI
+  soft-wrapped to a fixed column, so — unlike the conservative §6.3 path — its
+  paragraphs are reflowed back to one line each. A newline between two non-blank
+  lines is a soft wrap (rejoin with a single space) exactly when the first word of
+  the next line would not have fit on the current line at the block width `W` (the
+  widest line) — keying off the *original* line width, as §6.3 does. Blank lines
+  (paragraph breaks), continuation tokens, heredoc bodies, and lines opening with a
+  **list marker** (`- `/`* `/`1. `, the trailing space distinguishing a bullet from
+  a `--flag`) are intentional breaks and survive. The list-marker rule is also
+  taught to §6.3 `rejoin`, so two equal-width bullets never collapse into one line.
 
 ### 6.3 Rejoin wrapped lines
 - A newline is a **wrap** (rejoin) when the preceding line is "full" — its display

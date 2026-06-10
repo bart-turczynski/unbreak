@@ -12,24 +12,33 @@ public struct WrapProfile: Sendable, Equatable {
     public var minWrapConfidence: Double
     /// Minimum run of spaces that can mark a merge artifact's hidden newline (§6.5).
     public var minPaddingRun: Int
+    /// Leading "quote bar" glyphs a CLI renders as a left margin around a quoted or
+    /// previewed block. Claude Code's queued-prompt box prefixes every line with
+    /// `  ▎ ` (U+258E). When a dominant run of lines opens with
+    /// `<whitespace>* <bar> <space>?`, that prefix is a rendering gutter, not
+    /// content, and is stripped in §6.2 — exactly like the whitespace gutter.
+    public var gutterBars: [Character]
 
     public init(
         name: String,
         continuationTokens: [String],
         tabWidth: Int = DisplayWidth.defaultTabWidth,
         minWrapConfidence: Double = 0.5,
-        minPaddingRun: Int = 3
+        minPaddingRun: Int = 3,
+        gutterBars: [Character] = []
     ) {
         self.name = name
         self.continuationTokens = continuationTokens
         self.tabWidth = tabWidth
         self.minWrapConfidence = minWrapConfidence
         self.minPaddingRun = minPaddingRun
+        self.gutterBars = gutterBars
     }
 
     public static let claudeCode = WrapProfile(
         name: "claude-code",
-        continuationTokens: ["\\", "&&", "||", "|", "(", ","]
+        continuationTokens: ["\\", "&&", "||", "|", "(", ","],
+        gutterBars: ["\u{258E}"]  // ▎ — the queued-prompt preview box bar
     )
 
     /// Every profile that ships, keyed by its `name` — the lookup the config's
