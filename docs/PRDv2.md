@@ -235,7 +235,9 @@ report for logging and for power-user float overrides (§8.3).
 
 Hands-free fix on copy. **Opt-in** (see §8). The watcher only ever calls the pure
 repair function (§6) and decides based on its `RepairReport`. **All** of the
-following gates must pass before any mutation:
+following gates must pass before any mutation (with one narrow exception — the
+safe-dedent fast path documented after the list, which waives gates 5/6 for a
+pure de-gutter):
 
 1. **Frontmost app is an allowlisted terminal** (via `NSWorkspace`). Default
    allowlist: cmux, Ghostty, iTerm2, Apple Terminal — user-extensible (§8.3).
@@ -269,6 +271,26 @@ following gates must pass before any mutation:
 If all gates pass: **in-place clipboard mutation** is the intended behavior (the
 whole point) — the wrapped string representation is replaced. Documented
 prominently.
+
+**Safe-dedent fast path (gates 5/6 waived for a pure de-gutter).** Gates 5 and 6
+exist to stop the *line-merging* repairs (§6.3 rejoin / §6.2 reflow) from firing
+on prose, tables, markdown, or stack traces. A **pure de-gutter** — stripping the
+uniform left render gutter (§6.2) with no rejoin, reflow, or split — carries none
+of that risk: it never changes line boundaries and preserves relative indentation,
+so it cannot smush a table or collapse a paragraph. The `+2` render gutter is an
+artifact in *every* allowlisted-terminal copy, and no one wants it. So when the
+repair reports `dedentOnly` (the only structural change was a de-gutter), gates 1–4
+still bind but gates 5 and 6 are **waived**: a guttered table/markdown/prose copy
+gets its margin stripped hands-free, while any repair that would *merge* lines stays
+behind the full ladder. A power-user float threshold on gate 5 or 6 (§8.3) opts that
+gate back into the strict ladder. The mutation is logged as `decision=mutate
+via=dedent-only` and remains reversible via `unbreak undo` (§7.1).
+
+This refines the §2 target from "zero watch-mode mutations on the safe corpus" to
+"zero *rejoin/split* mutations; a uniform render-gutter strip is allowed." In
+practice the corpus is unaffected: its fixtures are column-0 (gutter `G=0`), so the
+de-gutter is a no-op and they still never mutate — only content that actually
+carries a uniform margin is de-guttered.
 
 ### 7.1 Rollback (mitigates "the original is gone")
 - The watcher keeps the **last original clipboard string in memory** before it

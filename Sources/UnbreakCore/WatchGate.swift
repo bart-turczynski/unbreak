@@ -102,29 +102,44 @@ public enum WatchGate {
     /// why, without re-deriving anything.
     public struct Decision: Sendable, Equatable {
         public let shouldMutate: Bool
+        /// True when the mutation was permitted by the §7.4 safe-dedent fast path —
+        /// i.e. it mutated despite a shell-signal (§7.5) or structure-risk (§7.6)
+        /// gate failing, because the repair was a pure de-gutter. Surfaced for the
+        /// log so a "mutate" on a table/prose copy is explainable.
+        public let viaDedentFastPath: Bool
         public let outcomes: [GateOutcome]
         public let byteCount: Int
         public let lineCount: Int
 
-        public init(shouldMutate: Bool, outcomes: [GateOutcome], byteCount: Int, lineCount: Int) {
+        public init(
+            shouldMutate: Bool,
+            viaDedentFastPath: Bool = false,
+            outcomes: [GateOutcome],
+            byteCount: Int,
+            lineCount: Int
+        ) {
             self.shouldMutate = shouldMutate
+            self.viaDedentFastPath = viaDedentFastPath
             self.outcomes = outcomes
             self.byteCount = byteCount
             self.lineCount = lineCount
         }
 
-        /// The first gate that failed, or `nil` if all passed. Handy for a one-word
-        /// log reason ("blocked: structure-risk-clear").
+        /// The first gate that blocked the mutation, or `nil` when we mutate (no gate
+        /// blocked — including a fast-path mutation that waived gates 5/6). Handy for a
+        /// one-word log reason ("blocked: structure-risk-clear").
         public var blockingGate: Gate? {
-            outcomes.first { !$0.passed }?.gate
+            shouldMutate ? nil : outcomes.first { !$0.passed }?.gate
         }
 
         /// A compact, content-safe summary line for the log / dry-run output, e.g.
-        /// `decision=skip blocked=structure-risk-clear bytes=412 lines=6`.
+        /// `decision=skip blocked=structure-risk-clear bytes=412 lines=6`, or
+        /// `decision=mutate via=dedent-only bytes=412 lines=6` for the fast path.
         public var logSummary: String {
             let verdict = shouldMutate ? "mutate" : "skip"
+            let via = viaDedentFastPath ? " via=dedent-only" : ""
             let blocked = blockingGate.map { " blocked=\($0.rawValue)" } ?? ""
-            return "decision=\(verdict)\(blocked) bytes=\(byteCount) lines=\(lineCount)"
+            return "decision=\(verdict)\(via)\(blocked) bytes=\(byteCount) lines=\(lineCount)"
         }
     }
 
@@ -167,8 +182,29 @@ public enum WatchGate {
             structureGate(analysis.structure, config: config),  // §7.6
         ]
 
+        // §7.4 safe-dedent fast path: when the repair's only change is a whitespace
+        // de-gutter (`report.dedentOnly`), the shell-signal (§7.5) and structure-risk
+        // (§7.6) gates are waived — stripping a uniform render gutter never merges
+        // lines or alters relative indent, so it is safe even on a table/markdown/
+        // prose copy the content gates would otherwise veto. The terminal, plain-text,
+        // size, and changed gates (1–4) still bind. A power-user float override on
+        // gate 5 or 6 opts back into the strict ladder for that gate.
+        let waivable: Set<Gate> = [.shellSignal, .structureRiskClear]
+        let fastPathEligible =
+            report.dedentOnly
+            && config.shellSignalScoreThreshold == nil
+            && config.structureRiskThreshold == nil
+        let shouldMutate = outcomes.allSatisfy { outcome in
+            outcome.passed || (fastPathEligible && waivable.contains(outcome.gate))
+        }
+        // Mark the fast path only when it actually mattered: we mutated *and* a
+        // waivable gate was failing (so this was not an ordinary all-pass mutation).
+        let waivedAFailure = outcomes.contains { waivable.contains($0.gate) && !$0.passed }
+        let viaDedentFastPath = shouldMutate && fastPathEligible && waivedAFailure
+
         return Decision(
-            shouldMutate: outcomes.allSatisfy { $0.passed },
+            shouldMutate: shouldMutate,
+            viaDedentFastPath: viaDedentFastPath,
             outcomes: outcomes,
             byteCount: byteCount,
             lineCount: lineCount

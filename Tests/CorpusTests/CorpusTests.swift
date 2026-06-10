@@ -8,7 +8,11 @@ import Testing
 /// Two halves of the same guarantee:
 ///  - **Zero watch-mode mutations** on a corpus of normal copies (the §2 goal,
 ///    operationalized): for every safe fixture, in every allowlisted terminal,
-///    the six-gate pipeline (§7) must decide *skip*.
+///    the six-gate pipeline (§7) must decide *skip*. The fixtures are column-0
+///    (no uniform render gutter), so the §7.4 safe-dedent fast path is a no-op on
+///    them — the refined contract ("zero *rejoin/split* mutations; a uniform
+///    render-gutter strip is allowed") still yields zero mutations here. A
+///    guttered-table case that *does* fast-path-mutate lives in `WatchGateTests`.
 ///  - **Golden repair captures** per §5 case type: raw mangled fragments repair to
 ///    a known-good form, idempotently, and the watcher acts only on the ones it
 ///    should.

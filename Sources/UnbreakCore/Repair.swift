@@ -45,6 +45,11 @@ public enum Repair {
         // each round because a merge upstream shifts body line indices.
         var working = preprocessed
         var dedentChanged = barChanged
+        // Track which kinds of structural change fired, to set `dedentOnly` for the
+        // watch-mode safe-dedent fast path (§7.4). A quote-bar strip/reflow is a
+        // non-dedent change, so it disqualifies the fast path from the start.
+        var sawDegutter = false
+        var sawRejoinOrReflow = barChanged
         var firstConfidence = 0.0
         var firstWidth: Int?
         var heredocDetected = false
@@ -63,6 +68,9 @@ public enum Repair {
                 protected: heredoc.protectedLines
             )
             dedentChanged = dedentChanged || dc
+            if dc { sawDegutter = true }
+            // A rejoin merged ≥1 seam this pass: the change is no longer dedent-only.
+            if rejoined.text != dedented { sawRejoinOrReflow = true }
             if iteration == 0 {
                 firstConfidence = rejoined.confidence
                 firstWidth = rejoined.detectedWidth
@@ -81,7 +89,9 @@ public enum Repair {
             // A forced width applies even when rejoin saw a single line (and so
             // reported no detected column).
             let splitWidth = options.forcedWidth ?? firstWidth
-            finalText = MergeSplit.split(finalText, profile: profile, width: splitWidth).text
+            let split = MergeSplit.split(finalText, profile: profile, width: splitWidth).text
+            if split != finalText { sawRejoinOrReflow = true }
+            finalText = split
         }
 
         // §6.7: classify the normalized content for the watch-mode gates. Signals
@@ -98,6 +108,10 @@ public enum Repair {
             structureRisk: structure.risk,
             heredocDetected: heredocDetected,
             detectedWidth: firstWidth,
+            // The only structural change was a whitespace de-gutter (§7.4 fast path):
+            // a dedent fired, nothing merged/reflowed/split, and the output really
+            // differs from the normalized input.
+            dedentOnly: sawDegutter && !sawRejoinOrReflow && finalText != normalized,
             // Beyond normalization? If the output equals the normalized input, the
             // only change was §6.1 stripping (escapes/CRLF) — no wrap rejoined, no
             // gutter removed. Watch mode (§7.4) must not fire on that.

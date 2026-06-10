@@ -16,6 +16,16 @@ public struct RepairReport: Sendable, Equatable {
     public var heredocDetected: Bool
     public var detectedWidth: Int?
 
+    /// True when the repair's *only* structural change was a whitespace de-gutter —
+    /// no wrap rejoin, no quote-bar reflow, no merge-split. Watch mode's safe-dedent
+    /// fast path (§7.4) acts on such a repair even when the shell-signal (§7.5) and
+    /// structure-risk (§7.6) gates would veto: stripping a uniform render gutter
+    /// never merges lines or alters relative indentation, so on an allowlisted
+    /// terminal it is the universally-wanted fix (a guttered table/markdown/prose
+    /// loses its `  ` margin) and never the dangerous line-merging op the gates
+    /// guard against. `false` for hand-built reports, so they keep the strict path.
+    public var dedentOnly: Bool
+
     /// Set by `Repair.repair` to whether the output differs from the *normalized*
     /// input — i.e. the repair did real structural work (a wrap rejoin or a dedent)
     /// rather than just stripping control sequences. `nil` when a report is built by
@@ -34,6 +44,7 @@ public struct RepairReport: Sendable, Equatable {
         structureRisk: Double = 0,
         heredocDetected: Bool = false,
         detectedWidth: Int? = nil,
+        dedentOnly: Bool = false,
         structuralChange: Bool? = nil
     ) {
         self.changed = changed
@@ -43,6 +54,7 @@ public struct RepairReport: Sendable, Equatable {
         self.structureRisk = structureRisk
         self.heredocDetected = heredocDetected
         self.detectedWidth = detectedWidth
+        self.dedentOnly = dedentOnly
         self.explicitStructuralChange = structuralChange
     }
 }

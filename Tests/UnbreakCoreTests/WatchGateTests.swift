@@ -255,4 +255,109 @@ struct WatchGateTests {
             #expect(!outcome.detail.isEmpty, "\(outcome.gate) detail should not be empty")
         }
     }
+
+    // MARK: - Gate 7.4 safe-dedent fast path
+
+    /// A box-drawing table copied with the +2 render gutter. Repair strips the
+    /// gutter (§6.2 de-gutter) but never rejoins the rows (§6.3 box-drawing guard),
+    /// so the only structural change is a pure de-gutter — `report.dedentOnly`.
+    /// Built line-by-line so the literal two-space margin is not eaten by Swift's
+    /// multiline-literal indentation stripping.
+    static let gutteredTable = [
+        "  ┌──────┬────────┐",
+        "  │ name │ status │",
+        "  ├──────┼────────┤",
+        "  │ a    │ ok     │",
+        "  └──────┴────────┘",
+    ].joined(separator: "\n")
+
+    @Test("A pure de-gutter is reported as dedentOnly")
+    func pureDedentIsDedentOnly() {
+        let report = Repair.repair(Self.gutteredTable).report
+        #expect(report.dedentOnly)
+        #expect(report.structuralChange)
+    }
+
+    @Test("A repair that rejoins is not dedentOnly")
+    func rejoinIsNotDedentOnly() {
+        // A guttered, wrapped two-line command: de-gutters *and* rejoins, so the
+        // change is not dedent-only and must keep the strict gate ladder.
+        let wrapped = "  echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbb\n  ccc"
+        let report = Repair.repair(wrapped).report
+        #expect(report.structuralChange)
+        #expect(!report.dedentOnly)
+    }
+
+    @Test("Unchanged and normalize-only repairs are never dedentOnly")
+    func noChangeIsNotDedentOnly() {
+        #expect(!Repair.repair("git status").report.dedentOnly)  // clean, no change
+        #expect(!Repair.repair("echo hi\u{1B}[0m").report.dedentOnly)  // ANSI-only
+    }
+
+    @Test("Fast path: a guttered table de-gutters despite the gate 5/6 vetoes")
+    func fastPathMutatesGutteredTable() {
+        let analysis = Signals.analyze(Self.gutteredTable)
+        #expect(!analysis.shell.passesGate, "a table has no shell signal (gate 5 fails)")
+        #expect(analysis.structure.vetoes, "a table trips the structure veto (gate 6)")
+
+        let d = WatchGate.decide(
+            clipboard: Self.gutteredTable,
+            isPlainText: true,
+            frontmostBundleID: term,
+            report: Repair.repair(Self.gutteredTable).report
+        )
+        #expect(d.shouldMutate, "a pure de-gutter should mutate via the fast path")
+        #expect(d.viaDedentFastPath)
+        #expect(d.blockingGate == nil)
+        #expect(d.logSummary.contains("decision=mutate"))
+        #expect(d.logSummary.contains("via=dedent-only"))
+    }
+
+    @Test("Fast path still requires the mandatory gates 1–4")
+    func fastPathStillRequiresMandatoryGates() {
+        let report = Repair.repair(Self.gutteredTable).report
+        // Gate 1: a non-allowlisted app blocks even a dedent-only repair.
+        let blocked = WatchGate.decide(
+            clipboard: Self.gutteredTable,
+            isPlainText: true,
+            frontmostBundleID: "com.brave.Browser",
+            report: report
+        )
+        #expect(!blocked.shouldMutate)
+        #expect(blocked.blockingGate == .terminalAllowlisted)
+        #expect(!blocked.viaDedentFastPath)
+
+        // Gate 2: a rich/non-plain-text item is still left untouched.
+        let rich = WatchGate.decide(
+            clipboard: Self.gutteredTable,
+            isPlainText: false,
+            frontmostBundleID: term,
+            report: report
+        )
+        #expect(!rich.shouldMutate)
+        #expect(rich.blockingGate == .plainText)
+    }
+
+    @Test("A normal all-pass mutation is not flagged as the fast path")
+    func ordinaryMutationIsNotFastPath() {
+        let d = passingDecision()  // git pull && make test — passes all six
+        #expect(d.shouldMutate)
+        #expect(!d.viaDedentFastPath)
+        #expect(!d.logSummary.contains("via=dedent-only"))
+    }
+
+    @Test("A power-user float threshold opts back into the strict ladder")
+    func floatThresholdDisablesFastPath() {
+        var config = WatchGate.Config()
+        config.structureRiskThreshold = 0.5  // explicit control of gate 6
+        let d = WatchGate.decide(
+            clipboard: Self.gutteredTable,
+            isPlainText: true,
+            frontmostBundleID: term,
+            report: Repair.repair(Self.gutteredTable).report,
+            config: config
+        )
+        #expect(!d.shouldMutate, "setting a float threshold disables the fast path")
+        #expect(!d.viaDedentFastPath)
+    }
 }
