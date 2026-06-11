@@ -37,11 +37,11 @@ class Unbreak < Formula
   # runtime).
   bottle do
     root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.5.0"
-    # Real v0.4.0 bottle digest, produced by release.yml. On the NEXT bump keep a
+    # Real v0.5.0 bottle digest, produced by release.yml. On the NEXT bump keep a
     # valid 64-hex value here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
     # failed the first tagged build).
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "486bc0c1e5c6e83a874caf3a6ce2af1f685f7ca0a21a9cd98a75a7e197c6c6ef"
+    sha256 cellar: :any_skip_relocation, arm64_ventura: "dd36ac306ede358c2c52de7d7269e20b03868d5d6cc9145166fb0f3bae201989"
   end
 
   depends_on :macos
