@@ -315,6 +315,36 @@ struct RepairTests {
         #expect(result.text == input)
     }
 
+    @Test("A line ending in a shell comment is never a wrap source (CLAU comment-merge)")
+    func doesNotMergeIntoTrailingComment() {
+        // Two distinct commands, each with an aligned trailing `# …` comment. They
+        // read as same-width "full" lines, so without the comment guard rejoin
+        // merged them — swallowing `brew services restart` into the first line's
+        // comment (data loss). The break is intentional; both options must keep it.
+        let input =
+            "brew update && brew upgrade unbreak     # should download the bottle, not compile\n"
+            + "brew services restart unbreak           # swap the resident watcher to v0.5.0"
+        #expect(Repair.repair(input).text == input)
+        #expect(Repair.repair(input, options: .init(reflowParagraphs: true)).text == input)
+        // Even the aggressive full-collapse fallback must not comment a command out.
+        #expect(Repair.repair(input, options: .init(joinAll: true)).text == input)
+        // And the watcher (default options) must not mutate it at all.
+        #expect(!Repair.repair(input).report.changed)
+    }
+
+    @Test("endsWithComment: unquoted word-boundary # only")
+    func endsWithCommentDetector() {
+        #expect(Repair.endsWithComment("brew install foo     # a comment"))
+        #expect(Repair.endsWithComment("# whole-line comment"))
+        #expect(Repair.endsWithComment("make test #c"))
+        // Not comments: inside quotes, mid-token, or after a non-space char.
+        #expect(!Repair.endsWithComment("echo 'not # a comment'"))
+        #expect(!Repair.endsWithComment("echo \"still # fine\""))
+        #expect(!Repair.endsWithComment("open https://example.com/page#section"))
+        #expect(!Repair.endsWithComment("echo ${#array[@]}"))
+        #expect(!Repair.endsWithComment("plain command with no hash"))
+    }
+
     // MARK: §6.8 Structure preservation (§5 Cases 3/4/6 round-trips)
 
     @Test("Case 3: a partially selected first line dedents to the continuation gutter")

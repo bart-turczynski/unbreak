@@ -362,8 +362,16 @@ public enum Repair {
                 // side of the seam, and bind even under joinAll (like list markers).
                 let touchesBoxDrawing =
                     containsBoxDrawing(lines[i]) || containsBoxDrawing(lines[i + 1])
+                // A line ending in a shell comment is a complete logical line, never
+                // the source of a soft wrap — merging the next line up into it would
+                // comment that line out. Bind this even under joinAll (like list
+                // markers / box-drawing): swallowing a command into a comment is never
+                // what the user meant.
+                let leftEndsWithComment = endsWithComment(lines[i])
                 let isWrap = isFull && !endsContinuation && nextNonBlank && !nextIndented
-                if !nextIsListItem && !touchesBoxDrawing && (options.joinAll || isWrap) {
+                if !nextIsListItem && !touchesBoxDrawing && !leftEndsWithComment
+                    && (options.joinAll || isWrap)
+                {
                     // Mid-token char-wrap (§5 Case 4): when the left line is a
                     // confirmed token fragment, the seam fell inside one unbreakable
                     // token, so rejoin with no space. Otherwise it is a word boundary
@@ -492,6 +500,51 @@ public enum Repair {
         var r = Substring(right)
         while r.hasPrefix(" ") { r = r.dropFirst() }
         return String(l) + String(r)
+    }
+
+    /// True when `line` carries a shell line-comment — an unquoted `#` at a word
+    /// boundary (line start, or right after whitespace) outside single/double
+    /// quotes. In shell such a `#` opens a comment that runs to end-of-line, so the
+    /// line is a *complete* logical line and can never be the source side of a soft
+    /// wrap: a real wrap would have continued the comment text, not started a fresh
+    /// command back at the left margin. §6.3 rejoin uses this to refuse merging the
+    /// next line up into the comment — which would silently comment a command out
+    /// (data loss: the `brew update … # …\nbrew services restart …` paste collapsed
+    /// `brew services restart` into the first line's comment). Conservative by
+    /// design — a false positive only forgoes a rejoin (a wrapped long comment stays
+    /// two lines), never corrupts; a `#` inside quotes, after `$`, or mid-token
+    /// (`url#frag`) is correctly *not* a comment.
+    static func endsWithComment(_ line: String) -> Bool {
+        var inSingle = false
+        var inDouble = false
+        var atWordBoundary = true  // line start is a word boundary
+        for ch in line {
+            if inSingle {
+                if ch == "'" { inSingle = false }
+                atWordBoundary = false
+                continue
+            }
+            if inDouble {
+                if ch == "\"" { inDouble = false }
+                atWordBoundary = false
+                continue
+            }
+            switch ch {
+            case "#" where atWordBoundary:
+                return true
+            case "'":
+                inSingle = true
+                atWordBoundary = false
+            case "\"":
+                inDouble = true
+                atWordBoundary = false
+            case " ", "\t":
+                atWordBoundary = true
+            default:
+                atWordBoundary = false
+            }
+        }
+        return false
     }
 
     /// Remove up to `columns` of leading whitespace (display-width aware).

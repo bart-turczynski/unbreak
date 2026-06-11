@@ -1,0 +1,2 @@
+brew update && brew upgrade unbreak     # should download the bottle, not compile
+brew services restart unbreak           # swap the resident watcher to v0.5.0
