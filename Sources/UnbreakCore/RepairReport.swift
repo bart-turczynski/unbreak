@@ -26,6 +26,21 @@ public struct RepairReport: Sendable, Equatable {
     /// guard against. `false` for hand-built reports, so they keep the strict path.
     public var dedentOnly: Bool
 
+    /// True when the repair stripped a confirmed quote-bar render gutter — Claude
+    /// Code's `  ▎ ` box (§6.2). Like `dedentOnly`, this marks a *render-gutter
+    /// cleanup* that watch mode's fast path (§7.4) waives the shell-signal (§7.5)
+    /// and structure-risk (§7.6) gates for. The difference: `dedentOnly` is a pure
+    /// whitespace dedent, whereas a bar strip also reflows the box back to one line
+    /// per paragraph. That extra merge is safe to waive on — confirming the `▎` bar
+    /// (a two-thirds majority of lines carry it, §6.2) is strong proof the block is
+    /// render chrome, not authored content, and `reflowQuoted`'s seam guards
+    /// (list-marker / box-drawing / shell-chain / indent) keep the merge from
+    /// smushing real structure. Without this, a `▎` prose/markdown box copied from
+    /// Claude — the canonical thing this tool exists to fix — is vetoed by gate 6
+    /// (`structure-risk-clear`) and the watcher leaves the bork on the clipboard.
+    /// `false` for hand-built reports, so they keep the strict path.
+    public var barStripped: Bool
+
     /// Set by `Repair.repair` to whether the output differs from the *normalized*
     /// input — i.e. the repair did real structural work (a wrap rejoin or a dedent)
     /// rather than just stripping control sequences. `nil` when a report is built by
@@ -45,6 +60,7 @@ public struct RepairReport: Sendable, Equatable {
         heredocDetected: Bool = false,
         detectedWidth: Int? = nil,
         dedentOnly: Bool = false,
+        barStripped: Bool = false,
         structuralChange: Bool? = nil
     ) {
         self.changed = changed
@@ -55,6 +71,7 @@ public struct RepairReport: Sendable, Equatable {
         self.heredocDetected = heredocDetected
         self.detectedWidth = detectedWidth
         self.dedentOnly = dedentOnly
+        self.barStripped = barStripped
         self.explicitStructuralChange = structuralChange
     }
 }

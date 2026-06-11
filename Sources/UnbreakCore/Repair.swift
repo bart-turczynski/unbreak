@@ -138,6 +138,11 @@ public enum Repair {
             // a dedent fired, nothing merged/reflowed/split, and the output really
             // differs from the normalized input.
             dedentOnly: sawDegutter && !sawRejoinOrReflow && finalText != normalized,
+            // A confirmed `▎` quote-bar gutter was stripped (§6.2). The watch-mode
+            // fast path (§7.4) waives gates 5/6 for this the same way it does for a
+            // pure dedent — the bar is unambiguous render chrome, so the strip +
+            // bounded reflow is the universally-wanted fix, not a risky prose merge.
+            barStripped: barChanged,
             // Beyond normalization? If the output equals the normalized input, the
             // only change was §6.1 stripping (escapes/CRLF) — no wrap rejoined, no
             // gutter removed. Watch mode (§7.4) must not fire on that.

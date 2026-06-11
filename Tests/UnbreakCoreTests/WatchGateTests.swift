@@ -307,7 +307,7 @@ struct WatchGateTests {
             report: Repair.repair(Self.gutteredTable).report
         )
         #expect(d.shouldMutate, "a pure de-gutter should mutate via the fast path")
-        #expect(d.viaDedentFastPath)
+        #expect(d.viaGutterFastPath)
         #expect(d.blockingGate == nil)
         #expect(d.logSummary.contains("decision=mutate"))
         #expect(d.logSummary.contains("via=dedent-only"))
@@ -325,7 +325,7 @@ struct WatchGateTests {
         )
         #expect(!blocked.shouldMutate)
         #expect(blocked.blockingGate == .terminalAllowlisted)
-        #expect(!blocked.viaDedentFastPath)
+        #expect(!blocked.viaGutterFastPath)
 
         // Gate 2: a rich/non-plain-text item is still left untouched.
         let rich = WatchGate.decide(
@@ -342,8 +342,64 @@ struct WatchGateTests {
     func ordinaryMutationIsNotFastPath() {
         let d = passingDecision()  // git pull && make test — passes all six
         #expect(d.shouldMutate)
-        #expect(!d.viaDedentFastPath)
+        #expect(!d.viaGutterFastPath)
         #expect(!d.logSummary.contains("via=dedent-only"))
+    }
+
+    // MARK: - Gate 7.4 fast path: confirmed `▎` quote-bar strip (CLAU bork repro)
+
+    /// The exact shape that shipped borked: a Claude Code `  ▎ ` prose box. The
+    /// watcher previously vetoed it (gate 6, `structure-risk-clear`) and left the
+    /// raw `▎`-laden, hard-wrapped text on the clipboard. A confirmed bar strip is
+    /// render-gutter cleanup, so the fast path must now waive gates 5/6.
+    static let barProseBox = [
+        "  ▎ Required to persist the user's preferences in chrome.storage.sync; this",
+        "  ▎ first sentence is long enough that the renderer soft-wrapped it across",
+        "  ▎ several lines, none of which is an authored break — it is one paragraph.",
+    ].joined(separator: "\n")
+
+    @Test("A confirmed quote-bar strip is reported as barStripped, not dedentOnly")
+    func barStripIsReportedAsBarStripped() {
+        let report = Repair.repair(Self.barProseBox).report
+        #expect(report.barStripped)
+        #expect(!report.dedentOnly, "a bar strip reflows, so it is not a pure dedent")
+        #expect(report.structuralChange)
+    }
+
+    @Test("Fast path: a `▎` prose box reflows despite the gate 5/6 vetoes")
+    func fastPathMutatesBarProseBox() {
+        let analysis = Signals.analyze(Repair.normalize(Self.barProseBox))
+        #expect(!analysis.shell.passesGate, "prose has no shell signal (gate 5 fails)")
+        #expect(analysis.structure.vetoes, "prose trips the structure veto (gate 6)")
+
+        let result = Repair.repair(Self.barProseBox)
+        #expect(!result.text.contains("▎"), "the bar must be gone from the repaired text")
+
+        let d = WatchGate.decide(
+            clipboard: Self.barProseBox,
+            isPlainText: true,
+            frontmostBundleID: term,
+            report: result.report
+        )
+        #expect(d.shouldMutate, "a confirmed bar strip should mutate via the fast path")
+        #expect(d.viaGutterFastPath)
+        #expect(d.blockingGate == nil)
+        #expect(d.logSummary.contains("decision=mutate"))
+        #expect(d.logSummary.contains("via=bar-strip"))
+    }
+
+    @Test("Bar-strip fast path still requires the mandatory gates 1–4")
+    func barStripFastPathStillRequiresMandatoryGates() {
+        let report = Repair.repair(Self.barProseBox).report
+        let blocked = WatchGate.decide(
+            clipboard: Self.barProseBox,
+            isPlainText: true,
+            frontmostBundleID: "com.brave.Browser",  // gate 1: not allowlisted
+            report: report
+        )
+        #expect(!blocked.shouldMutate)
+        #expect(blocked.blockingGate == .terminalAllowlisted)
+        #expect(!blocked.viaGutterFastPath)
     }
 
     @Test("A power-user float threshold opts back into the strict ladder")
@@ -358,6 +414,6 @@ struct WatchGateTests {
             config: config
         )
         #expect(!d.shouldMutate, "setting a float threshold disables the fast path")
-        #expect(!d.viaDedentFastPath)
+        #expect(!d.viaGutterFastPath)
     }
 }

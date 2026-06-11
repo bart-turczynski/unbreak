@@ -170,6 +170,19 @@ struct WatchTruePositiveTests {
         #expect(d.shouldMutate, "'\(name)' should mutate: \(d.logSummary)")
     }
 
+    /// The `▎` quote-bar boxes — including the prose/markdown one that shipped
+    /// borked (CLAU): a confirmed bar strip is render-gutter cleanup, so the §7.4
+    /// fast path waives gates 5/6 and the watcher fixes them hands-free instead of
+    /// leaving the raw `▎`-laden text on the clipboard.
+    @Test(
+        "Quote-bar boxes mutate via the bar-strip fast path",
+        arguments: ["quote-bar", "quote-bar-prose", "quote-bar-unicode"]
+    )
+    func quoteBarCapturesMutate(_ name: String) {
+        let d = decision(for: capture(name))
+        #expect(d.shouldMutate, "'\(name)' should mutate: \(d.logSummary)")
+    }
+
     @Test(
         "Captures the repair leaves unchanged are never mutated",
         arguments: ["heredoc", "long-token"]

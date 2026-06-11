@@ -102,24 +102,30 @@ public enum WatchGate {
     /// why, without re-deriving anything.
     public struct Decision: Sendable, Equatable {
         public let shouldMutate: Bool
-        /// True when the mutation was permitted by the §7.4 safe-dedent fast path —
+        /// True when the mutation was permitted by the §7.4 render-gutter fast path —
         /// i.e. it mutated despite a shell-signal (§7.5) or structure-risk (§7.6)
-        /// gate failing, because the repair was a pure de-gutter. Surfaced for the
-        /// log so a "mutate" on a table/prose copy is explainable.
-        public let viaDedentFastPath: Bool
+        /// gate failing, because the repair was a render-gutter cleanup (a pure
+        /// de-gutter or a confirmed `▎` bar strip). Surfaced for the log so a
+        /// "mutate" on a table/prose copy is explainable.
+        public let viaGutterFastPath: Bool
+        /// Which render-gutter cleanup waived the gates — `"dedent-only"` or
+        /// `"bar-strip"` — for the log. `nil` when the fast path did not fire.
+        public let fastPathReason: String?
         public let outcomes: [GateOutcome]
         public let byteCount: Int
         public let lineCount: Int
 
         public init(
             shouldMutate: Bool,
-            viaDedentFastPath: Bool = false,
+            viaGutterFastPath: Bool = false,
+            fastPathReason: String? = nil,
             outcomes: [GateOutcome],
             byteCount: Int,
             lineCount: Int
         ) {
             self.shouldMutate = shouldMutate
-            self.viaDedentFastPath = viaDedentFastPath
+            self.viaGutterFastPath = viaGutterFastPath
+            self.fastPathReason = fastPathReason
             self.outcomes = outcomes
             self.byteCount = byteCount
             self.lineCount = lineCount
@@ -134,10 +140,10 @@ public enum WatchGate {
 
         /// A compact, content-safe summary line for the log / dry-run output, e.g.
         /// `decision=skip blocked=structure-risk-clear bytes=412 lines=6`, or
-        /// `decision=mutate via=dedent-only bytes=412 lines=6` for the fast path.
+        /// `decision=mutate via=bar-strip bytes=412 lines=6` for the fast path.
         public var logSummary: String {
             let verdict = shouldMutate ? "mutate" : "skip"
-            let via = viaDedentFastPath ? " via=dedent-only" : ""
+            let via = viaGutterFastPath ? " via=\(fastPathReason ?? "render-gutter")" : ""
             let blocked = blockingGate.map { " blocked=\($0.rawValue)" } ?? ""
             return "decision=\(verdict)\(via)\(blocked) bytes=\(byteCount) lines=\(lineCount)"
         }
@@ -182,16 +188,21 @@ public enum WatchGate {
             structureGate(analysis.structure, config: config),  // §7.6
         ]
 
-        // §7.4 safe-dedent fast path: when the repair's only change is a whitespace
-        // de-gutter (`report.dedentOnly`), the shell-signal (§7.5) and structure-risk
-        // (§7.6) gates are waived — stripping a uniform render gutter never merges
-        // lines or alters relative indent, so it is safe even on a table/markdown/
-        // prose copy the content gates would otherwise veto. The terminal, plain-text,
-        // size, and changed gates (1–4) still bind. A power-user float override on
-        // gate 5 or 6 opts back into the strict ladder for that gate.
+        // §7.4 render-gutter fast path: when the repair's structural change was a
+        // render-gutter cleanup — a pure whitespace de-gutter (`report.dedentOnly`)
+        // OR a confirmed `▎` quote-bar strip (`report.barStripped`, §6.2) — the
+        // shell-signal (§7.5) and structure-risk (§7.6) gates are waived. Stripping a
+        // uniform render gutter is the universally-wanted fix even on a table/
+        // markdown/prose copy the content gates would otherwise veto: a whitespace
+        // dedent never merges lines, and a confirmed bar strip's reflow is bounded by
+        // `reflowQuoted`'s seam guards. This is what lets the watcher fix a `▎`
+        // prose/markdown box copied from Claude — previously vetoed by gate 6
+        // (`structure-risk-clear`) and left borked on the clipboard. The terminal,
+        // plain-text, size, and changed gates (1–4) still bind. A power-user float
+        // override on gate 5 or 6 opts back into the strict ladder for that gate.
         let waivable: Set<Gate> = [.shellSignal, .structureRiskClear]
         let fastPathEligible =
-            report.dedentOnly
+            (report.dedentOnly || report.barStripped)
             && config.shellSignalScoreThreshold == nil
             && config.structureRiskThreshold == nil
         let shouldMutate = outcomes.allSatisfy { outcome in
@@ -200,11 +211,13 @@ public enum WatchGate {
         // Mark the fast path only when it actually mattered: we mutated *and* a
         // waivable gate was failing (so this was not an ordinary all-pass mutation).
         let waivedAFailure = outcomes.contains { waivable.contains($0.gate) && !$0.passed }
-        let viaDedentFastPath = shouldMutate && fastPathEligible && waivedAFailure
+        let viaGutterFastPath = shouldMutate && fastPathEligible && waivedAFailure
 
         return Decision(
             shouldMutate: shouldMutate,
-            viaDedentFastPath: viaDedentFastPath,
+            viaGutterFastPath: viaGutterFastPath,
+            fastPathReason: viaGutterFastPath
+                ? (report.dedentOnly ? "dedent-only" : "bar-strip") : nil,
             outcomes: outcomes,
             byteCount: byteCount,
             lineCount: lineCount
