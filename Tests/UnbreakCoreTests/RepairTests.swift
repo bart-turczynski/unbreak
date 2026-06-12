@@ -423,6 +423,44 @@ struct RepairTests {
         #expect(result.text == head + " short")
     }
 
+    @Test("Case 4: a long token at the tail of a spaced line rejoins with no space")
+    func case4MidTokenRejoinInSpacedLine() {
+        // The §5-case-4 break the `solid` whole-line test misses: a long unbreakable
+        // token (a URL) at the *tail* of an otherwise-spaced command line. The left
+        // line has interior spaces (`gcloud auth …`) so it is not "solid", but the
+        // token straddling the seam (`…https://www.g` + `oogleapis…`) is far wider than
+        // the wrap column, so the break was forced mid-token — rejoin with NO space.
+        // The injected-space bug split the URL into an invalid `https://www.g` scope.
+        let input =
+            "gcloud auth application-default login --scopes=openid,"
+            + "https://www.googleapis.com/auth/userinfo.email,"
+            + "https://www.googleapis.com/auth/cloud-platform,https://www.g\n"
+            + "oogleapis.com/auth/cse,https://www.googleapis.com/auth/analytics.readonly"
+        let expected =
+            "gcloud auth application-default login --scopes=openid,"
+            + "https://www.googleapis.com/auth/userinfo.email,"
+            + "https://www.googleapis.com/auth/cloud-platform,"
+            + "https://www.googleapis.com/auth/cse,"
+            + "https://www.googleapis.com/auth/analytics.readonly"
+        let once = Repair.repair(input).text
+        #expect(once == expected)
+        #expect(!once.contains("www.g "), "a space was injected mid-URL")
+        // Idempotent: a second pass must not re-wrap or alter the repaired line.
+        #expect(Repair.repair(once).text == once)
+    }
+
+    @Test("seamIsMidToken needs interior whitespace: a lone full token keeps the case-1 space")
+    func midTokenSeamIgnoresLoneTokenLines() {
+        // A lone full token line (no interior space) + short remainder stays a
+        // single-space join (the §5 case-1 lock), even though the boundary token is
+        // wider than the column — only a spaced line's tail token triggers the seam.
+        let head = String(repeating: "x", count: 42)
+        #expect(
+            Repair.rejoin(head + "\n/tmp/out.json", profile: .claudeCode,
+                options: .init(forcedWidth: 42)).text == head + " /tmp/out.json"
+        )
+    }
+
     @Test("Box-drawing table rows are never rejoined into one line (F5)")
     func boxDrawingTableNotSmushed() {
         // Uniform-width rows read as "full", but box-drawing newlines are structural.
