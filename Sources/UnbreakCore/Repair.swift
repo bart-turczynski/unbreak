@@ -368,8 +368,22 @@ public enum Repair {
                 // markers / box-drawing): swallowing a command into a comment is never
                 // what the user meant.
                 let leftEndsWithComment = endsWithComment(lines[i])
+                // A soft-wrap continuation resumes the previous statement mid-stream
+                // (arguments, paths, words), so it never *begins a fresh command*. When
+                // the next line opens with a known tool or a `VAR=value` assignment it is
+                // a separate statement, not a wrap remainder — two independent commands
+                // that happen to share a near-`w` display width (`cd ~/p` / `python3 -m
+                // venv .venv`, both 30 cols) read as "full" and would otherwise smush
+                // into one unrunnable line. Bind even under joinAll, like the list /
+                // box-drawing / comment guards: gluing two commands together is never
+                // what the user meant. Skip the guard on a confirmed mid-token char-wrap
+                // (`isFragment`): there the next line is the tail of one unbreakable
+                // token, not a statement, and a fragment like `n=eyJ…` (the back half of
+                // `…?token=…`) only *looks* like a `VAR=value` start (F4).
+                let nextStartsCommand = !isFragment(i) && startsFreshCommand(lines[i + 1])
                 let isWrap = isFull && !endsContinuation && nextNonBlank && !nextIndented
                 if !nextIsListItem && !touchesBoxDrawing && !leftEndsWithComment
+                    && !nextStartsCommand
                     && (options.joinAll || isWrap)
                 {
                     // Mid-token char-wrap (§5 Case 4): when the left line is a
@@ -545,6 +559,22 @@ public enum Repair {
             }
         }
         return false
+    }
+
+    /// True when `line` begins a *fresh* shell statement — its first bare token is a
+    /// known command/tool (`Signals.knownTools`) or it opens with a `VAR=value`
+    /// assignment. A soft-wrap continuation never starts this way: the wrap broke
+    /// mid-statement, so the remainder resumes with arguments/words, not a new command
+    /// invocation. §6.3 rejoin refuses to treat a seam *onto* such a line as a wrap, so
+    /// two independent commands that coincidentally share a near-`w` display width
+    /// (`cd ~/p` / `python3 -m venv .venv`) stay on separate lines instead of smushing
+    /// into one unrunnable line. Conservative by construction — the known-tool and
+    /// assignment shapes are unambiguous statement starts, never wrap remainders (a
+    /// real wrap continues with the argument *to* the trailing flag, e.g. `--workdir`
+    /// then `/work …`, which is not a known tool), so the guard only ever *forgoes* a
+    /// rejoin (leaves two lines); it can never corrupt.
+    static func startsFreshCommand(_ line: String) -> Bool {
+        Signals.startsWithKnownTool(line) || Signals.hasEnvAssignmentPrefix(line)
     }
 
     /// Remove up to `columns` of leading whitespace (display-width aware).

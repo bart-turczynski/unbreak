@@ -1,0 +1,4 @@
+cd ~/Projects/google-analytics
+python3 -m venv .venv
+source .venv/bin/activate.fish
+pip install google-analytics-data

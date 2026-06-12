@@ -332,6 +332,39 @@ struct RepairTests {
         #expect(!Repair.repair(input).report.changed)
     }
 
+    @Test("Stacked commands sharing a wrap-width are never rejoined (CLAU separate-commands)")
+    func doesNotMergeStackedCommands() {
+        // Four independent shell commands; lines 1 and 3 are coincidentally both 30
+        // display cols, so detectWidth picks 30 as a "wrap column" and — without the
+        // fresh-command guard — rejoin smushed `cd …`+`python3 …` and `source …`+`pip
+        // …` into two unrunnable lines. The breaks are intentional statement bounds.
+        let input =
+            "cd ~/Projects/google-analytics\n"
+            + "python3 -m venv .venv\n"
+            + "source .venv/bin/activate.fish\n"
+            + "pip install google-analytics-data"
+        #expect(Repair.repair(input).text == input)
+        #expect(Repair.repair(input, options: .init(reflowParagraphs: true)).text == input)
+        // Even the aggressive full-collapse fallback must not glue two commands together.
+        #expect(Repair.repair(input, options: .init(joinAll: true)).text == input)
+        // And the watcher (default options) must not mutate it at all.
+        #expect(!Repair.repair(input).report.changed)
+    }
+
+    @Test("startsFreshCommand: known-tool or VAR=value statement starts only")
+    func startsFreshCommandDetector() {
+        #expect(Repair.startsFreshCommand("python3 -m venv .venv"))
+        #expect(Repair.startsFreshCommand("pip install google-analytics-data"))
+        #expect(Repair.startsFreshCommand("cd ~/Projects/google-analytics"))
+        #expect(Repair.startsFreshCommand("FOO=bar npm test"))
+        // Not fresh commands: genuine wrap remainders that resume mid-statement with
+        // the argument to a trailing flag, a bare path, or a continued word.
+        #expect(!Repair.startsFreshCommand("/work --env CCFIX_TERMINALS=com.apple.Terminal"))
+        #expect(!Repair.startsFreshCommand("ghcr.io/example/ccfix:latest /bin/bash --login"))
+        #expect(!Repair.startsFreshCommand("libx264 -preset slow -crf 22"))
+        #expect(!Repair.startsFreshCommand("copy the signed artifact into the volume"))
+    }
+
     @Test("endsWithComment: unquoted word-boundary # only")
     func endsWithCommentDetector() {
         #expect(Repair.endsWithComment("brew install foo     # a comment"))
