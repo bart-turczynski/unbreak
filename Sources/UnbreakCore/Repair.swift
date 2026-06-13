@@ -161,7 +161,30 @@ public enum Repair {
         var s = stripControlSequences(input)
         s = s.replacingOccurrences(of: "\r\n", with: "\n")
         s = s.replacingOccurrences(of: "\r", with: "\n")
+        s = trimBlankEdges(s)
         return s
+    }
+
+    /// Drop leading and trailing blank lines (§6.1). A drag-selection routinely
+    /// grabs a stray blank line above or below the real content; left in place it
+    /// not only survives into the paste but skews §6.2 de-gutter — a leading blank
+    /// pushes the real first content line into the "lines 2..n" set, changing the
+    /// gutter `G` so the result depends on selection slop. Trimming the edges first
+    /// makes `G` a function of the real content alone.
+    ///
+    /// Internal blank lines (paragraph breaks in a bar block, §6.2) are preserved —
+    /// only the leading and trailing runs are removed. A single trailing newline is
+    /// re-added when the input had one, honoring §6.1's output-parity rule. An input
+    /// that is entirely blank is returned unchanged: there is no content to anchor a
+    /// trim, and emptying a deliberately-whitespace clipboard would be a surprise.
+    static func trimBlankEdges(_ text: String) -> String {
+        let endsWithNewline = text.hasSuffix("\n")
+        var lines = splitLines(text)
+        while let first = lines.first, isBlank(first) { lines.removeFirst() }
+        while let last = lines.last, isBlank(last) { lines.removeLast() }
+        guard !lines.isEmpty else { return text }
+        let joined = lines.joined(separator: "\n")
+        return endsWithNewline ? joined + "\n" : joined
     }
 
     /// Remove ANSI CSI sequences (SGR colors, cursor moves), OSC payloads

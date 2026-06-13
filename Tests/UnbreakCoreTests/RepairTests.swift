@@ -38,6 +38,40 @@ struct RepairTests {
         #expect(DisplayWidth.width(of: Repair.normalize(colored)) == 42)
     }
 
+    @Test("Leading and trailing blank lines are trimmed; one trailing newline survives (§6.1)")
+    func trimsBlankEdges() {
+        #expect(Repair.normalize("\n\n  cmd\n\n") == "  cmd\n")
+        #expect(Repair.normalize("\t\nls\n  \n") == "ls\n")
+    }
+
+    @Test("Internal blank lines (paragraph breaks) are preserved through normalize (§6.1)")
+    func keepsInternalBlankLines() {
+        #expect(Repair.normalize("a\n\nb") == "a\n\nb")
+    }
+
+    @Test("No trailing newline is invented when the input had none (§6.1 parity)")
+    func trimRespectsTrailingNewlineParity() {
+        #expect(Repair.normalize("\n\nfoo") == "foo")
+    }
+
+    @Test("An all-blank input is returned unchanged (nothing to anchor a trim) (§6.1)")
+    func leavesAllBlankInputAlone() {
+        #expect(Repair.normalize("  \n\t\n") == "  \n\t\n")
+    }
+
+    @Test("A leading blank line no longer perturbs de-gutter; output is slop-invariant (O1)")
+    func leadingBlankDoesNotChangeDegutter() {
+        // A backslash continuation under a 2-space render gutter. With and without a
+        // stray leading blank line (selection slop), repair must produce the same text,
+        // and the result must carry no leading blank line.
+        let withBlank = "\n  cmd --flag \\\n    --other\n"
+        let withoutBlank = "  cmd --flag \\\n    --other\n"
+        let a = Repair.repair(withBlank).text
+        let b = Repair.repair(withoutBlank).text
+        #expect(a == b)
+        #expect(!a.hasPrefix("\n"))
+    }
+
     // MARK: §6.2 De-gutter
 
     @Test("Removes the common gutter, preserving relative indent among lines 2..n (§5 cases 2/6)")
