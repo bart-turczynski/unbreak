@@ -499,9 +499,10 @@ public enum Repair {
     static let minWrapColumn = 20
     /// A *single* full line is weak evidence of a wrap, so a lone candidate only
     /// establishes a column on a clean two-line paste and only when it is at least
-    /// this wide — comfortably below a narrow split-pane width, well above any line a
-    /// user would deliberately type and break by hand.
-    static let minTwoLineWrapColumn = 40
+    /// this wide. Real terminal wraps (Claude Code, split-pane TUIs) happen at 80+
+    /// cols; a first line below this threshold is far more likely a complete command
+    /// sitting above a separate one than a genuine wrap remainder.
+    static let minTwoLineWrapColumn = 60
 
     /// Wrap column = the dominant display width among the **full, non-final** lines,
     /// matched with the same ±2 tolerance `rejoin` uses for "full". Returns nil when

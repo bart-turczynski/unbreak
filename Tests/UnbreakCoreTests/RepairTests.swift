@@ -385,6 +385,19 @@ struct RepairTests {
         #expect(!Repair.repair(input).report.changed)
     }
 
+    @Test("Two short independent commands are never joined (CLAU source-unknown-tool)")
+    func doesNotMergeTwoShortCommandsWithUnknownTool() {
+        // `source` (46 cols) followed by an unknown tool `linklint` (33 cols): the
+        // first line is a complete command whose width is below minTwoLineWrapColumn
+        // (60), so detectWidth must return nil and the lines must stay separate.
+        let input =
+            "source ~/.config/fish/functions/linklint.fish\n"
+            + "linklint check https://\u{0440}\u{0430}ypal.com"
+        #expect(Repair.repair(input).text == input)
+        #expect(!Repair.repair(input).report.changed)
+        #expect(Repair.repair(input, options: .init(reflowParagraphs: true)).text == input)
+    }
+
     @Test("startsFreshCommand: known-tool or VAR=value statement starts only")
     func startsFreshCommandDetector() {
         #expect(Repair.startsFreshCommand("python3 -m venv .venv"))
@@ -591,6 +604,8 @@ struct RepairTests {
         // not a wrap (the latter guards a quote-bar reflow's intentional break).
         #expect(Repair.detectWidth([30, 12]) == nil)
         #expect(Repair.detectWidth([118, 140]) == nil)
+        // Below minTwoLineWrapColumn (60): first line is a complete command, not a wrap.
+        #expect(Repair.detectWidth([46, 33]) == nil)
         // Three lines with no repeated/clustered width stay ambiguous → nil.
         #expect(Repair.detectWidth([139, 60, 52]) == nil)
     }

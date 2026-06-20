@@ -282,7 +282,9 @@ struct WatchGateTests {
     func rejoinIsNotDedentOnly() {
         // A guttered, wrapped two-line command: de-gutters *and* rejoins, so the
         // change is not dedent-only and must keep the strict gate ladder.
-        let wrapped = "  echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbb\n  ccc"
+        // The first line must be ≥ minTwoLineWrapColumn (60) to trigger the 2-line
+        // heuristic; use 62 cols (realistic narrow split-pane).
+        let wrapped = "  echo " + String(repeating: "a", count: 56) + " bbb\n  ccc"
         let report = Repair.repair(wrapped).report
         #expect(report.structuralChange)
         #expect(!report.dedentOnly)
