@@ -69,22 +69,31 @@ jobs:
           ROOT_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.tag }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
+          # The formula's install recipe builds a UNIVERSAL (arm64 + x86_64) binary,
+          # so this one bottle carries both slices.
           brew install --build-bottle local/unbreak/unbreak
           brew bottle --json --no-rebuild --root-url="${ROOT_URL}" local/unbreak/unbreak
           # `brew bottle` tags the bottle for the build OS (tahoe). Relabel to the
           # OLDEST supported macOS — ventura, matching Package.swift .macOS(.v13) —
           # because Homebrew reuses a bottle tagged for an older OS on newer systems
-          # (never the reverse). One ventura-tagged file therefore serves macOS 13+
-          # on Apple Silicon. The binary's deployment target is v13, so the label is
-          # accurate; `:any_skip_relocation` means no OS/path is baked into the
-          # tarball, so the rename is sound.
+          # (never the reverse, never across archs). The binary's deployment target
+          # is v13, so the label is accurate; `:any_skip_relocation` means no OS/path
+          # is baked into the tarball, so the rename is sound.
+          #
+          # Publish the SAME universal tarball under BOTH arch tags so Intel Macs
+          # pour a bottle too: arm64_ventura serves Apple Silicon 13+, ventura serves
+          # Intel 13+. The files are byte-identical copies (no arch/path baked in),
+          # so they share one sha256 — emitted on both bottle-block lines.
           built=$(ls unbreak--*.bottle.tar.gz)
-          bottle="unbreak-${VERSION}.arm64_ventura.bottle.tar.gz"
-          mv "$built" "$bottle"
-          sha=$(shasum -a 256 "$bottle" | awk '{print $1}')
-          echo "bottle=${bottle}" >> "$GITHUB_OUTPUT"
+          arm="unbreak-${VERSION}.arm64_ventura.bottle.tar.gz"
+          intel="unbreak-${VERSION}.ventura.bottle.tar.gz"
+          mv "$built" "$arm"
+          cp "$arm" "$intel"
+          sha=$(shasum -a 256 "$arm" | awk '{print $1}')
           echo "sha=${sha}" >> "$GITHUB_OUTPUT"
-          echo "Bottle: ${bottle} (sha256 ${sha})"
+          echo "Universal bottle published as:"
+          echo "  ${arm}  (sha256 ${sha})"
+          echo "  ${intel} (sha256 ${sha}, identical copy)"
 
       - name: Emit the bottle block
         env:
@@ -98,6 +107,7 @@ jobs:
             echo '  bottle do'
             echo "    root_url \"${ROOT_URL}\""
             echo "    sha256 cellar: :any_skip_relocation, arm64_ventura: \"${SHA}\""
+            echo "    sha256 cellar: :any_skip_relocation, ventura:       \"${SHA}\""
             echo '  end'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

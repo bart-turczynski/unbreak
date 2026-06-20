@@ -71,13 +71,18 @@ the formula bump comes first, then the tag, then the workflow fills in the bottl
    no-bottle fallback): `brew install --build-from-source ./Formula/unbreak.rb`.
 
 > **Architectures & OS coverage.** The bottle is built on the Apple-Silicon
-> `macos-26` runner, so it serves `arm64`. Homebrew only reuses a bottle on a
-> macOS release **at or newer than** the bottle's own tag — never older. So the
-> workflow relabels the tahoe-built bottle to the *oldest* supported tag,
-> `arm64_ventura` (matching `Package.swift` `.macOS(.v13)`); one file then serves
-> macOS 13+ on Apple Silicon. Intel (`x86_64`) users currently fall back to the
-> source build; add an `x86_64` bottle (cross-build or a universal `lipo`) if the
-> team needs it.
+> `macos-26` runner, but the formula's `install` recipe compiles a **universal
+> (arm64 + x86_64) binary** in one pass — `swift build -c release --arch arm64
+> --arch x86_64`, which SwiftPM `lipo`s itself (no Intel runner needed; the SDK
+> on the arm64 runner carries x86_64 support). Homebrew only reuses a bottle on a
+> macOS release **at or newer than** the bottle's tag, and never across archs, so
+> the workflow relabels the tahoe-built bottle to the *oldest* supported tag —
+> `ventura` (matching `Package.swift` `.macOS(.v13)`) — and publishes the one
+> universal tarball under **both** arch tags: `arm64_ventura` (Apple Silicon 13+)
+> and `ventura` (Intel 13+). The two release assets are byte-identical copies
+> (`:any_skip_relocation` bakes in no arch/path), so they share a single `sha256`
+> — the generated `bottle do` block repeats it on both lines. Intel and Apple
+> Silicon users both pour a bottle; neither needs the Swift toolchain.
 
 ## Fallback installer
 
@@ -95,6 +100,8 @@ per-user plist (§7.4, §8.2).
 
 ## Later (§12)
 
-- **Intel / universal bottle** so `x86_64` Macs skip the source build too.
+- ~~**Intel / universal bottle** so `x86_64` Macs skip the source build too.~~
+  Done — the formula builds a universal binary and the release ships it under
+  both `arm64_ventura` and `ventura` tags (see "Architectures & OS coverage").
 - **homebrew-core** submission once notability clears the self-submission bar
   (≥90 forks / ≥90 watchers / ≥225 stars, a stable release, and an OSS license).

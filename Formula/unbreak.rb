@@ -29,28 +29,40 @@ class Unbreak < Formula
   license "MIT"
 
   # Prebuilt binary, hosted as a GitHub release asset (see .github/workflows/
-  # release.yml). The job builds on the macos-26 runner but relabels the bottle to
-  # the OLDEST supported macOS (arm64_ventura = Package.swift .macOS(.v13)) so
-  # newer systems reuse it — one file serves macOS 13+ on Apple Silicon. Paste the
-  # job-generated block here and in the tap. `:any_skip_relocation` is correct:
-  # the binary hardcodes no Cellar path (links only system libs + the OS Swift
-  # runtime).
+  # release.yml). The job builds a UNIVERSAL (arm64 + x86_64) binary on the
+  # macos-26 runner, then relabels it to the OLDEST supported macOS — ventura =
+  # Package.swift .macOS(.v13) — under both arch tags, because Homebrew reuses a
+  # bottle on a newer OS within the same arch (never older, never across archs).
+  # `arm64_ventura` serves Apple Silicon macOS 13+, `ventura` serves Intel 13+.
+  # The two release assets are byte-identical copies of the one universal tarball,
+  # so they share a sha256. Paste the job-generated block here and in the tap.
+  # `:any_skip_relocation` is correct: the binary hardcodes no Cellar path (links
+  # only system libs + the OS Swift runtime).
   bottle do
     root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.5.3"
-    # Real v0.5.3 bottle digest, produced by release.yml. On the NEXT bump keep a
-    # valid 64-hex value here even before rebuilding: the workflow's `brew install
+    # Real v0.5.3 bottle digest, produced by release.yml. On the NEXT bump keep
+    # valid 64-hex values here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
-    # failed the first tagged build).
+    # failed the first tagged build). Both lines share one digest (identical
+    # universal tarball under two arch tags).
     sha256 cellar: :any_skip_relocation, arm64_ventura: "243119bd5bf0529727c8a743076847b3f1e61e3f54dcc517aaac1fd9779975b0"
+    sha256 cellar: :any_skip_relocation, ventura:       "243119bd5bf0529727c8a743076847b3f1e61e3f54dcc517aaac1fd9779975b0"
   end
 
   depends_on :macos
 
   def install
     # Self-contained SwiftPM package (no external deps): a release build with the
-    # sandbox disabled so SwiftPM can write its build products.
-    system "swift", "build", "--disable-sandbox", "-c", "release"
-    bin.install ".build/release/unbreak"
+    # sandbox disabled so SwiftPM can write its build products. Build a universal
+    # (arm64 + x86_64) binary so the one bottle this recipe produces serves both
+    # Mac architectures — Homebrew reuses a bottle only within an arch, so without
+    # the x86_64 slice Intel Macs fall back to the source build. SwiftPM runs the
+    # `lipo` merge itself for a multi-`--arch` build; the fat binary lands under
+    # `.build/apple/Products/Release` (not the single-arch `.build/release`). Both
+    # slices target Package.swift's .macOS(.v13) floor.
+    system "swift", "build", "--disable-sandbox", "-c", "release",
+           "--arch", "arm64", "--arch", "x86_64"
+    bin.install ".build/apple/Products/Release/unbreak"
   end
 
   # `brew services start unbreak` generates the per-user launchd plist — no
