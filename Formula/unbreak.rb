@@ -17,15 +17,15 @@ class Unbreak < Formula
   homepage "https://github.com/bart-turczynski/unbreak"
   # Source tarball for the tagged release. `version` is explicit so users update
   # only on a bump, not on every tap refresh.
-  url "https://github.com/bart-turczynski/unbreak/archive/refs/tags/v0.5.2.tar.gz"
-  version "0.5.2"
+  url "https://github.com/bart-turczynski/unbreak/archive/refs/tags/v0.5.3.tar.gz"
+  version "0.5.3"
   # Digest of the v0.2.0 source tarball (see docs/RELEASING.md):
   #   curl -fsSL .../v0.2.0.tar.gz | shasum -a 256
   # NOTE: in *this* repo the formula ships inside the tarball it points at, so a
   # self-consistent source sha is impossible — the tap repo's copy carries the
   # real digest, and release.yml injects it for the bottle build. This value is a
   # placeholder until mirrored to the tap.
-  sha256 "8de50b5ecd34dab0434fc2c0a4dd9770a4f2e51d08409e873683c414f831aa51"
+  sha256 "placeholder_workflow_injects_real_digest_see_RELEASING_md"
   license "MIT"
 
   # Prebuilt binary, hosted as a GitHub release asset (see .github/workflows/
@@ -36,8 +36,8 @@ class Unbreak < Formula
   # the binary hardcodes no Cellar path (links only system libs + the OS Swift
   # runtime).
   bottle do
-    root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.5.2"
-    # Real v0.5.2 bottle digest, produced by release.yml. On the NEXT bump keep a
+    root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.5.3"
+    # Real v0.5.3 bottle digest, produced by release.yml. On the NEXT bump keep a
     # valid 64-hex value here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
     # failed the first tagged build).
