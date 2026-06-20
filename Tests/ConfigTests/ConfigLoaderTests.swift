@@ -10,7 +10,7 @@ struct ConfigLoaderTests {
     func defaults() {
         let loaded = ConfigLoader.resolve(tomlText: nil, environment: [:])
         #expect(loaded.warnings.isEmpty)
-        #expect(loaded.config == CCFixConfig())
+        #expect(loaded.config == UnbreakConfig())
         #expect(loaded.config.terminalAllowlist == WatchGate.Config.defaultTerminalAllowlist)
         #expect(loaded.config.pollIntervalMilliseconds == 500)
         #expect(loaded.config.maxClipboardBytes == 16 * 1024)
@@ -124,7 +124,7 @@ struct ConfigLoaderTests {
 
     @Test("The config projects onto WatchGate.Config and the poll TimeInterval")
     func projections() {
-        let config = CCFixConfig(
+        let config = UnbreakConfig(
             terminalAllowlist: ["com.apple.Terminal"],
             pollIntervalMilliseconds: 250,
             maxClipboardBytes: 8192,
@@ -215,7 +215,7 @@ struct ConfigLoaderTests {
         // No file on disk yet → defaults, no warnings.
         let missing = ConfigLoader.load(environment: env)
         #expect(missing.warnings.isEmpty)
-        #expect(missing.config == CCFixConfig())
+        #expect(missing.config == UnbreakConfig())
 
         // Write a config and confirm load() picks it up.
         let configURL = ConfigLoader.defaultConfigURL(environment: env)
@@ -232,10 +232,10 @@ struct ConfigLoaderTests {
 
     @Test("The bundled sample is valid TOML and resolves cleanly")
     func sampleIsValid() {
-        let loaded = ConfigLoader.resolve(tomlText: CCFixConfig.sampleTOML, environment: [:])
+        let loaded = ConfigLoader.resolve(tomlText: UnbreakConfig.sampleTOML, environment: [:])
         // Every line in the sample is commented, so it must resolve to the
         // defaults with no warnings.
         #expect(loaded.warnings.isEmpty)
-        #expect(loaded.config == CCFixConfig())
+        #expect(loaded.config == UnbreakConfig())
     }
 }

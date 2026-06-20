@@ -6,8 +6,7 @@
 > agent CLIs (Claude Code, Gemini CLI, Codex CLI) so they paste as clean,
 > runnable shell commands. macOS only.
 
-See [`docs/PRDv2.md`](docs/PRDv2.md) for the full product spec; [`docs/PRD.md`](docs/PRD.md)
-is the prior draft. Earlier prototypes live in [`archive/`](archive/).
+See [`docs/PRDv2.md`](docs/PRDv2.md) for the full product spec.
 
 ## Why
 
@@ -90,8 +89,7 @@ Tests/              swift-testing unit + property + corpus tests (§6.8, §13)
 Formula/unbreak.rb    Homebrew formula (PRD v2 §9)
 install.sh          curl|bash fallback installer (PRD v2 §9)
 uninstall.sh        curl|bash uninstaller — state teardown + binary (PRD v2 §9)
-docs/               PRDs + release flow
-archive/            reference Python implementation + original plist/README
+docs/               product spec + release flow
 ```
 
 ## Develop

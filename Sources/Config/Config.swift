@@ -12,7 +12,7 @@ import UnbreakCore
 /// `pollInterval`) hand them to the watch daemon (§7). The discrete gate rules
 /// ship as the default — the float thresholds are optional power-user overrides
 /// that stay `nil` unless the user sets them.
-public struct CCFixConfig: Equatable, Sendable {
+public struct UnbreakConfig: Equatable, Sendable {
     public var terminalAllowlist: Set<String>
     public var pollIntervalMilliseconds: Int
     public var wrapProfile: WrapProfile

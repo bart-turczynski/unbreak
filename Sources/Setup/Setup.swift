@@ -289,7 +289,7 @@ extension SetupCommand {
     }
 
     /// Build a `config.toml` with the chosen allowlist active, followed by the
-    /// fully-commented `CCFixConfig.sampleTOML` defaults so every other knob is
+    /// fully-commented `UnbreakConfig.sampleTOML` defaults so every other knob is
     /// documented in place.
     public static func configContents(terminals: Set<String>) -> String {
         let array = terminals.sorted().map { "\"\($0)\"" }.joined(separator: ", ")
@@ -299,7 +299,7 @@ extension SetupCommand {
             # commented defaults that follow document every other available option.
             terminals = [\(array)]
 
-            \(CCFixConfig.sampleTOML)
+            \(UnbreakConfig.sampleTOML)
             """
     }
 }

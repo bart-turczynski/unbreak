@@ -1,7 +1,7 @@
 import Foundation
 import UnbreakCore
 
-/// Loads `CCFixConfig` from the config file and `UNBREAK_*` environment overrides
+/// Loads `UnbreakConfig` from the config file and `UNBREAK_*` environment overrides
 /// (PRD v2 §8.3).
 ///
 /// Loading is **forgiving by design**: a malformed file, an unknown key, or an
@@ -12,10 +12,10 @@ import UnbreakCore
 public enum ConfigLoader {
     /// A resolved config plus any non-fatal warnings gathered while resolving it.
     public struct Loaded: Equatable, Sendable {
-        public var config: CCFixConfig
+        public var config: UnbreakConfig
         public var warnings: [String]
 
-        public init(config: CCFixConfig, warnings: [String] = []) {
+        public init(config: UnbreakConfig, warnings: [String] = []) {
             self.config = config
             self.warnings = warnings
         }
@@ -53,7 +53,7 @@ public enum ConfigLoader {
         tomlText: String?,
         environment: [String: String]
     ) -> Loaded {
-        var config = CCFixConfig()
+        var config = UnbreakConfig()
         var warnings: [String] = []
 
         if let tomlText {
@@ -68,7 +68,7 @@ public enum ConfigLoader {
 
     private static func applyFile(
         _ text: String,
-        to config: inout CCFixConfig,
+        to config: inout UnbreakConfig,
         warnings: inout [String]
     ) {
         let table: [String: TOMLValue]
@@ -123,7 +123,7 @@ public enum ConfigLoader {
 
     private static func applyEnvironment(
         _ env: [String: String],
-        to config: inout CCFixConfig,
+        to config: inout UnbreakConfig,
         warnings: inout [String]
     ) {
         if let raw = env[EnvKey.terminals] {
@@ -164,7 +164,7 @@ public enum ConfigLoader {
     private static func applyProfile(
         _ name: String?,
         source: String,
-        to config: inout CCFixConfig,
+        to config: inout UnbreakConfig,
         warnings: inout [String]
     ) {
         guard let name else {

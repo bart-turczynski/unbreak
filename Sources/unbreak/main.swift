@@ -55,7 +55,7 @@ case .run(let arguments):
 /// Start the opt-in fix-on-copy daemon (§7) and block on the run loop until the
 /// process is terminated. Never returns. The `config` (§8.3) supplies the gate
 /// allowlist/size bound/thresholds, the wrap profile, and the poll interval.
-func runWatchDaemon(dryRun: Bool, options: RepairOptions, config: CCFixConfig) -> Never {
+func runWatchDaemon(dryRun: Bool, options: RepairOptions, config: UnbreakConfig) -> Never {
     #if canImport(AppKit)
     let watcher = Watcher.system()
     let session = WatchSession(
