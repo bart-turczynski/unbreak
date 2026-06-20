@@ -1,5 +1,7 @@
 # unbreak
 
+[![codecov](https://codecov.io/gh/bart-turczynski/unbreak/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bart-turczynski/unbreak)
+
 > Repairs terminal-wrapped clipboard commands from grid-renderer
 > agent CLIs (Claude Code, Gemini CLI, Codex CLI) so they paste as clean,
 > runnable shell commands. macOS only.
