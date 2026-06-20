@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import UnbreakCore
 
@@ -135,10 +136,98 @@ struct ConfigLoaderTests {
         #expect(config.pollInterval == 0.25)
     }
 
+    @Test("An empty or non-string-array 'terminals' warns and keeps the default")
+    func badTerminalsFile() {
+        let emptyArray = ConfigLoader.resolve(tomlText: "terminals = []", environment: [:])
+        #expect(emptyArray.config.terminalAllowlist == WatchGate.Config.defaultTerminalAllowlist)
+        #expect(emptyArray.warnings.contains { $0.contains("'terminals' must be a non-empty") })
+
+        let notStrings = ConfigLoader.resolve(tomlText: "terminals = [1, 2]", environment: [:])
+        #expect(notStrings.config.terminalAllowlist == WatchGate.Config.defaultTerminalAllowlist)
+        #expect(notStrings.warnings.contains { $0.contains("'terminals' must be a non-empty") })
+    }
+
+    @Test("A non-string wrap_profile in the file warns and keeps the default")
+    func nonStringProfileFile() {
+        let loaded = ConfigLoader.resolve(tomlText: "wrap_profile = 123", environment: [:])
+        #expect(loaded.config.wrapProfile == .claudeCode)
+        #expect(loaded.warnings.contains { $0.contains("wrap profile must be a string") })
+    }
+
+    @Test("UNBREAK_WRAP_PROFILE selects a shipped profile")
+    func wrapProfileEnv() {
+        let loaded = ConfigLoader.resolve(
+            tomlText: nil,
+            environment: [ConfigLoader.EnvKey.wrapProfile: "claude-code"]
+        )
+        #expect(loaded.warnings.isEmpty)
+        #expect(loaded.config.wrapProfile == .claudeCode)
+    }
+
+    @Test("A bad-typed / negative threshold in the file warns and keeps the default")
+    func badThresholdFile() {
+        let loaded = ConfigLoader.resolve(
+            tomlText: """
+                [thresholds]
+                shell_signal_score = -0.5
+                structure_risk = "high"
+                """,
+            environment: [:]
+        )
+        #expect(loaded.config.shellSignalScoreThreshold == nil)
+        #expect(loaded.config.structureRiskThreshold == nil)
+        #expect(loaded.warnings.count == 2)
+        #expect(loaded.warnings.allSatisfy { $0.contains("non-negative number") })
+    }
+
+    @Test("A bad env threshold warns and keeps the default")
+    func badThresholdEnv() {
+        let loaded = ConfigLoader.resolve(
+            tomlText: nil,
+            environment: [ConfigLoader.EnvKey.structureRisk: "high"]
+        )
+        #expect(loaded.config.structureRiskThreshold == nil)
+        #expect(loaded.warnings.contains { $0.contains(ConfigLoader.EnvKey.structureRisk) })
+    }
+
     @Test("XDG_CONFIG_HOME redirects the config path")
     func xdgPath() {
         let url = ConfigLoader.defaultConfigURL(environment: ["XDG_CONFIG_HOME": "/tmp/cfg"])
         #expect(url.path == "/tmp/cfg/unbreak/config.toml")
+    }
+
+    @Test("Without XDG_CONFIG_HOME the path falls back to ~/.config")
+    func defaultPathFallsBackToDotConfig() {
+        // An absent var and an empty one both take the home fallback.
+        for env in [[:], ["XDG_CONFIG_HOME": ""]] as [[String: String]] {
+            let url = ConfigLoader.defaultConfigURL(environment: env)
+            #expect(url.path.hasSuffix("/.config/unbreak/config.toml"))
+        }
+    }
+
+    @Test("load() reads a real file under XDG_CONFIG_HOME; a missing file yields defaults")
+    func loadFromDisk() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("unbreak-cfg-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let env = ["XDG_CONFIG_HOME": root.path]
+
+        // No file on disk yet → defaults, no warnings.
+        let missing = ConfigLoader.load(environment: env)
+        #expect(missing.warnings.isEmpty)
+        #expect(missing.config == CCFixConfig())
+
+        // Write a config and confirm load() picks it up.
+        let configURL = ConfigLoader.defaultConfigURL(environment: env)
+        try FileManager.default.createDirectory(
+            at: configURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try "poll_interval_ms = 321".write(to: configURL, atomically: true, encoding: .utf8)
+
+        let loaded = ConfigLoader.load(environment: env)
+        #expect(loaded.warnings.isEmpty)
+        #expect(loaded.config.pollIntervalMilliseconds == 321)
     }
 
     @Test("The bundled sample is valid TOML and resolves cleanly")

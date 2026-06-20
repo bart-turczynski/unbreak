@@ -84,4 +84,74 @@ struct TOMLTests {
             try TOML.parse(#"xs = ["a", "b""#)
         }
     }
+
+    @Test("A table header missing its closing bracket is a syntax error")
+    func unterminatedTableHeader() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "unterminated table header")) {
+            try TOML.parse("[thresholds")
+        }
+    }
+
+    @Test("An empty table header is a syntax error")
+    func emptyTableHeader() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "empty table header")) {
+            try TOML.parse("[]")
+        }
+    }
+
+    @Test("A line beginning with '=' has no key and is a syntax error")
+    func missingKey() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "missing key before '='")) {
+            try TOML.parse("= 5")
+        }
+    }
+
+    @Test("A key with nothing after '=' is a syntax error")
+    func missingValue() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "missing value after '='")) {
+            try TOML.parse("key =")
+        }
+    }
+
+    @Test("A malformed float is a syntax error")
+    func invalidFloat() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "invalid float '1.2.3'")) {
+            try TOML.parse("ratio = 1.2.3")
+        }
+    }
+
+    @Test("A bare, non-numeric, unquoted value is unrecognized")
+    func unrecognizedValue() {
+        // No `.`/`e`/`E`, so it bypasses the float branch and fails as an integer.
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "unrecognized value 'abc'")) {
+            try TOML.parse("flag = abc")
+        }
+    }
+
+    @Test("A string missing its closing quote is a syntax error")
+    func unterminatedString() {
+        #expect(throws: (any Error).self) {
+            try TOML.parse(#"name = "abc"#)
+        }
+    }
+
+    @Test("A string ending on a dangling escape is a syntax error")
+    func danglingEscape() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "dangling escape in string")) {
+            try TOML.parse(#"name = "ab\""#)
+        }
+    }
+
+    @Test("An escaped quote inside an array element does not split the element")
+    func escapedQuoteInArray() throws {
+        let table = try TOML.parse(#"xs = ["a\"b", "c"]"#)
+        #expect(table["xs"] == .array([.string(#"a"b"#), .string("c")]))
+    }
+
+    @Test("An array element whose string is never closed is a syntax error")
+    func unterminatedStringInArray() {
+        #expect(throws: TOML.ParseError.syntax(line: 1, message: "unterminated string in array")) {
+            try TOML.parse(#"xs = ["a]"#)
+        }
+    }
 }

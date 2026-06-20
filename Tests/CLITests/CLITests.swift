@@ -226,6 +226,31 @@ struct CLIRunTests {
         #expect(cap.stderr.contains("no clipboard"))
     }
 
+    @Test("A literal fragment with no pasteboard to deposit into errors out")
+    func literalNoClipboardErrors() {
+        let cap = Capture()
+        // A literal source reaches the delivery step (unlike .clipboard, which bails
+        // up front) and only there discovers there is nowhere to write the result.
+        let code = CLI.runOneShot(
+            CLI.Arguments(source: .literal(wrapped)),
+            environment: cap.environment(withClipboard: false)
+        )
+        #expect(code == 1)
+        #expect(cap.stderr.contains("no clipboard"))
+    }
+
+    @Test("The production environment is wired with a clipboard and the standard streams")
+    func systemEnvironmentIsWired() {
+        // A smoke test over the production wiring: it must construct without touching
+        // stdin (the read closure is lazy) and expose a real clipboard on macOS.
+        let env = CLI.Environment.system()
+        #if canImport(AppKit)
+        #expect(env.clipboard != nil)
+        #endif
+        env.writeStdout("")
+        env.writeStderr("")
+    }
+
     @Test("The confidence summary never leaks the payload")
     func confidenceIsContentFree() {
         let report = RepairReport(changed: true, wrapColumnConfidence: 0.9, detectedWidth: 80)

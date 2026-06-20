@@ -269,6 +269,64 @@ struct SetupRunTests {
         #expect(!harness.stdout.contains("brew uninstall"))
     }
 
+    @Test("`uninstall` reports a non-zero exit when the agent removal fails")
+    func uninstallAgentFailureIsSurfaced() {
+        struct RemoveError: Error, LocalizedError {
+            var errorDescription: String? { "disk full" }
+        }
+        let harness = Harness()
+        var env = harness.environment()
+        // A plist is present but its removal throws — uninstall() returns non-zero.
+        env.agentManager.fileExists = { _ in true }
+        env.agentManager.removeFile = { _ in throw RemoveError() }
+
+        let code = SetupCommand.run(.uninstall(keepConfig: false), environment: env)
+
+        #expect(code == 1)
+        #expect(harness.stderr.contains("failed to remove"))
+    }
+
+    @Test("`uninstall` reports a state-file removal that fails")
+    func uninstallStateFileFailureIsSurfaced() {
+        struct RemoveError: Error, LocalizedError {
+            var errorDescription: String? { "permission denied" }
+        }
+        let harness = Harness()
+        let log = URL(fileURLWithPath: "/Users/x/Library/Logs/unbreak.log")
+        harness.stateFiles = [log]
+        harness.present = [log.path]
+        var env = harness.environment()
+        env.removeFile = { _ in throw RemoveError() }
+
+        let code = SetupCommand.run(.uninstall(keepConfig: false), environment: env)
+
+        #expect(code == 1)
+        #expect(harness.stderr.contains("could not remove \(log.path)"))
+    }
+
+    @Test("`uninstall` leaves the binary in place when its path can't be resolved")
+    func uninstallUnresolvedBinary() {
+        let harness = Harness()
+        harness.backend.binary = nil
+
+        let code = SetupCommand.run(
+            .uninstall(keepConfig: false),
+            environment: harness.environment()
+        )
+
+        #expect(code == 0)
+        #expect(harness.stdout.contains("The binary itself was left in place"))
+    }
+
+    @Test("StatePaths.all enumerates the logs and undo socket under a home")
+    func statePathsLayout() {
+        let home = URL(fileURLWithPath: "/Users/x")
+        let paths = StatePaths.all(home: home).map(\.path)
+        #expect(paths.contains("/Users/x/Library/Logs/unbreak.log"))
+        #expect(paths.contains("/Users/x/Library/Logs/unbreak.watch.log"))
+        #expect(paths.contains("/Users/x/Library/Application Support/unbreak/undo.sock"))
+    }
+
     /// Install an agent through the harness's backend so a later uninstall has a
     /// plist to bootout + remove.
     private func backendInstall(_ harness: Harness) -> Int32 {
