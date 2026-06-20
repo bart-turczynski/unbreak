@@ -1,0 +1,19 @@
+
+⏺ Both branches are pushed (backup done):
+  - punycoder → release/1.2.0
+  - pslr → release/1.0.2
+
+  Heads-up on the "run CI" part: both repos only trigger their workflows on PRs and pushes to main — a push to a release/* branch runs nothing. So no CI fired. That
+  said, the local R CMD check --as-cran I already ran on both is more thorough than the CI verify gate (it includes the full build, vignettes, PDF manual, and
+  donttest examples), so correctness is covered regardless.
+
+                                                                                                           Nothing submitted, nothing merged. Current state:
+                                                                                                                   ┌─────────────────┬─────────────────┬───────────────────┐                                                                                                           │     Package     │ Branch (pushed) │       CRAN        │                                                                                                           ├─────────────────┼─────────────────┼───────────────────┤                                                                                                           │ pslr 1.0.1      │ —               │ ⏳ pending review │
+  ├─────────────────┼─────────────────┼───────────────────┤
+  │ pslr 1.0.2      │ release/1.0.2   │ staged, held      │
+  ├─────────────────┼─────────────────┼───────────────────┤                                                                                                           │ punycoder 1.2.0 │ release/1.2.0   │ staged, held      │
+  └─────────────────┴─────────────────┴───────────────────┘
+
+                                                                                                           If you do want CI / cross-platform validation to run on these now, the only way in these repos is to open PRs (which triggers verify + full-check + news-version)   — that's not a CRAN submission, so it's compatible with "don't submit." Say the word and I'll open them as draft PRs; otherwise they sit pushed and ready.
+
+  The one external gate remains pslr 1.0.1's CRAN verdict — ping me when it lands.

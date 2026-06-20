@@ -56,9 +56,20 @@ public enum Repair {
             reflowInput = deg
             preDegutterChanged = dc
         }
-        let preprocessed =
+        let reflowed =
             (barChanged || wantsProseReflow)
             ? reflowQuoted(reflowInput, profile: profile) : reflowInput
+
+        // §6 (cmux capture): un-shatter a renderer-merged box-drawing table. cmux
+        // copies a Claude TUI message by flattening the grid — several `│…│` rows
+        // arrive concatenated on one line behind ~100-space padding runs, with prose
+        // right-shifted by a leading-padding run. This splits the merged rows back
+        // apart and pulls the spurious leading padding to the block's modal indent,
+        // leaving a uniform margin the §6.2 de-gutter below then strips cleanly. It
+        // is self-gating (a no-op unless a real row seam exists), so a cleanly copied
+        // table or any non-table copy flows through untouched. Runs unconditionally
+        // (no opt-in flag) so the watcher fixes it hands-free via the §7.4 fast path.
+        let (preprocessed, unshatterChanged) = Unshatter.unshatter(reflowed, profile: profile)
 
         // §6.4 + §6.8: iterate de-gutter → rejoin to a fixed point. One pass is not
         // idempotent — rejoin merges full lines, and on a fresh pass those merged
@@ -73,9 +84,10 @@ public enum Repair {
         // watch-mode safe-dedent fast path (§7.4). A quote-bar strip/reflow is a
         // non-dedent change, so it disqualifies the fast path from the start.
         var sawDegutter = preDegutterChanged
-        // A bar strip, or any reflow that actually merged lines, is a non-dedent
-        // structural change — it disqualifies the §7.4 dedent-only fast path.
-        var sawRejoinOrReflow = barChanged || preprocessed != reflowInput
+        // A bar strip, a reflow that merged lines, or a box-table un-shatter is a
+        // non-dedent structural change — it disqualifies the §7.4 dedent-only fast
+        // path (the un-shatter instead claims its own `tableUnshattered` fast path).
+        var sawRejoinOrReflow = barChanged || unshatterChanged || preprocessed != reflowInput
         var firstConfidence = 0.0
         var firstWidth: Int?
         var heredocDetected = false
@@ -143,6 +155,13 @@ public enum Repair {
             // pure dedent — the bar is unambiguous render chrome, so the strip +
             // bounded reflow is the universally-wanted fix, not a risky prose merge.
             barStripped: barChanged,
+            // A renderer-merged box-drawing table was un-shattered (cmux capture).
+            // Like a bar strip, this is unambiguous render corruption — the watch
+            // fast path (§7.4) waives gates 5/6 for it, since the structure-risk gate
+            // would otherwise veto every table copy and leave the bork on the
+            // clipboard. Splitting only fires on real `│…│` row seams, so it can
+            // never mistake authored content for a shattered table.
+            tableUnshattered: unshatterChanged,
             // Beyond normalization? If the output equals the normalized input, the
             // only change was §6.1 stripping (escapes/CRLF) — no wrap rejoined, no
             // gutter removed. Watch mode (§7.4) must not fire on that.

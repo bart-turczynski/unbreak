@@ -490,8 +490,11 @@ struct RepairTests {
         // wider than the column — only a spaced line's tail token triggers the seam.
         let head = String(repeating: "x", count: 42)
         #expect(
-            Repair.rejoin(head + "\n/tmp/out.json", profile: .claudeCode,
-                options: .init(forcedWidth: 42)).text == head + " /tmp/out.json"
+            Repair.rejoin(
+                head + "\n/tmp/out.json",
+                profile: .claudeCode,
+                options: .init(forcedWidth: 42)
+            ).text == head + " /tmp/out.json"
         )
     }
 

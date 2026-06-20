@@ -202,7 +202,7 @@ public enum WatchGate {
         // override on gate 5 or 6 opts back into the strict ladder for that gate.
         let waivable: Set<Gate> = [.shellSignal, .structureRiskClear]
         let fastPathEligible =
-            (report.dedentOnly || report.barStripped)
+            (report.dedentOnly || report.barStripped || report.tableUnshattered)
             && config.shellSignalScoreThreshold == nil
             && config.structureRiskThreshold == nil
         let shouldMutate = outcomes.allSatisfy { outcome in
@@ -216,8 +216,7 @@ public enum WatchGate {
         return Decision(
             shouldMutate: shouldMutate,
             viaGutterFastPath: viaGutterFastPath,
-            fastPathReason: viaGutterFastPath
-                ? (report.dedentOnly ? "dedent-only" : "bar-strip") : nil,
+            fastPathReason: viaGutterFastPath ? fastPathReason(report) : nil,
             outcomes: outcomes,
             byteCount: byteCount,
             lineCount: lineCount
@@ -247,6 +246,15 @@ public enum WatchGate {
             analysis: Signals.analyze(Repair.normalize(clipboard)),
             config: config
         )
+    }
+
+    /// Which render-gutter cleanup waived gates 5/6, for the log line. A pure dedent
+    /// and a bar strip take precedence over the box-table un-shatter when more than
+    /// one fired (they are the broader, longer-standing cleanups).
+    private static func fastPathReason(_ report: RepairReport) -> String {
+        if report.dedentOnly { return "dedent-only" }
+        if report.barStripped { return "bar-strip" }
+        return "table-unshatter"
     }
 
     // MARK: - Per-gate evaluation

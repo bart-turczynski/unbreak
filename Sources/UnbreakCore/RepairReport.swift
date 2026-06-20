@@ -41,6 +41,17 @@ public struct RepairReport: Sendable, Equatable {
     /// `false` for hand-built reports, so they keep the strict path.
     public var barStripped: Bool
 
+    /// True when the repair un-shattered a renderer-merged box-drawing table — the
+    /// cmux capture where several `│…│` rows arrive concatenated on one line behind
+    /// long padding runs (§6). Like `barStripped`, this marks unambiguous render
+    /// corruption that watch mode's fast path (§7.4) waives the shell-signal (§7.5)
+    /// and structure-risk (§7.6) gates for: the structure-risk gate vetoes *every*
+    /// table copy, so without the waiver the watcher could never fix a shattered
+    /// table. The split only ever fires on a genuine `│…│` row seam (a space run
+    /// flanked by box glyphs, at least one a corner/junction), so it cannot mistake
+    /// authored prose for a mangled table. `false` for hand-built reports.
+    public var tableUnshattered: Bool
+
     /// Set by `Repair.repair` to whether the output differs from the *normalized*
     /// input — i.e. the repair did real structural work (a wrap rejoin or a dedent)
     /// rather than just stripping control sequences. `nil` when a report is built by
@@ -61,6 +72,7 @@ public struct RepairReport: Sendable, Equatable {
         detectedWidth: Int? = nil,
         dedentOnly: Bool = false,
         barStripped: Bool = false,
+        tableUnshattered: Bool = false,
         structuralChange: Bool? = nil
     ) {
         self.changed = changed
@@ -72,6 +84,7 @@ public struct RepairReport: Sendable, Equatable {
         self.detectedWidth = detectedWidth
         self.dedentOnly = dedentOnly
         self.barStripped = barStripped
+        self.tableUnshattered = tableUnshattered
         self.explicitStructuralChange = structuralChange
     }
 }
