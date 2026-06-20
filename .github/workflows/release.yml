@@ -28,7 +28,7 @@ jobs:
     # reuse, then to the source build if no compatible bottle exists.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Resolve tag/version
         id: ver
