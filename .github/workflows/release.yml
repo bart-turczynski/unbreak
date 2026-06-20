@@ -7,10 +7,13 @@ name: Release (bottle)
 # toolchain on the user's machine.
 #
 # The hashes inside a `bottle do` block can only exist after the bottle is built,
-# so this job *generates* that block (correct OS tag + sha256) and attaches it to
-# the release. The maintainer then pastes it into the tap formula — see
-# docs/RELEASING.md. The job uploads the bottle tarball as a release asset; the
-# formula's `root_url` points back at exactly that location.
+# so this job *generates* that block (correct OS tag + sha256), attaches it to the
+# release, and — for a final (non-prerelease) tag — auto-mirrors the finished
+# formula (real source sha + bottle digest) into the `homebrew-tap` repo that
+# users install from. That tap push is what used to be a manual, easily-skipped
+# step (the tap had silently drifted to v0.5.2); it needs a `TAP_PUSH_TOKEN`
+# secret — see docs/RELEASING.md. The job uploads the bottle tarball as a release
+# asset; the formula's `root_url` points back at exactly that location.
 
 on:
   push:
@@ -44,6 +47,7 @@ jobs:
       # now and injecting url+sha into the tap copy only — the committed formula's
       # source fields are irrelevant to the bottle build.
       - name: Stage formula in a local tap with this tag's real source sha
+        id: src
         env:
           TAG: ${{ steps.ver.outputs.tag }}
           VERSION: ${{ steps.ver.outputs.version }}
@@ -52,6 +56,9 @@ jobs:
           url="https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz"
           sha="$(curl -fsSL "$url" | shasum -a 256 | awk '{print $1}')"
           echo "Source tarball sha256: ${sha}"
+          # Reused by the tap-mirror step (the in-repo formula keeps a 000…
+          # placeholder; the tap copy carries this real source digest).
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
           brew tap-new local/unbreak --no-git
           dest="$(brew --repository local/unbreak)/Formula/unbreak.rb"
           cp Formula/unbreak.rb "$dest"
@@ -101,7 +108,7 @@ jobs:
           SHA: ${{ steps.build.outputs.sha }}
         run: |
           {
-            echo '## `bottle do` block — paste into Formula/unbreak.rb (this repo + the tap)'
+            echo '## `bottle do` block (the tap is auto-mirrored; paste into this repo'\''s Formula/unbreak.rb to keep it current)'
             echo ''
             echo '```ruby'
             echo '  bottle do'
@@ -122,3 +129,48 @@ jobs:
           case "$TAG" in *-*) prerelease="--prerelease" ;; esac
           gh release create "$TAG" --title "$TAG" --generate-notes $prerelease ./*.bottle.tar.gz \
             || gh release upload "$TAG" ./*.bottle.tar.gz --clobber
+
+      # Mirror the finished formula into the tap users install from. This kills the
+      # old manual paste step (the tap had silently drifted to v0.5.2). Skipped for
+      # prereleases — stable users must not pour an -rc bottle. The in-repo formula
+      # at this tag already carries the new version/url/root_url (bumped pre-tag per
+      # docs/RELEASING.md); we inject the two values it CAN'T self-host: the real
+      # source-tarball sha and the just-built bottle digest.
+      - name: Mirror formula to the Homebrew tap
+        if: ${{ !contains(steps.ver.outputs.tag, '-') }}
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_PUSH_TOKEN }}
+          SRC_SHA: ${{ steps.src.outputs.sha }}
+          BOTTLE_SHA: ${{ steps.build.outputs.sha }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          if [ -z "${TAP_TOKEN}" ]; then
+            echo "::error::TAP_PUSH_TOKEN secret is not set — cannot mirror to homebrew-tap." \
+                 "Create a fine-grained PAT with Contents:read/write on bart-turczynski/homebrew-tap" \
+                 "and add it as the TAP_PUSH_TOKEN repo secret (see docs/RELEASING.md)." >&2
+            exit 1
+          fi
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/bart-turczynski/homebrew-tap.git" tap
+          dest="tap/Formula/unbreak.rb"
+          cp Formula/unbreak.rb "$dest"
+          # BSD sed (macOS runner). The bare `sha256 "<64hex>"` line is the source
+          # digest (the cellar lines are `sha256 cellar: …`, so the anchored pattern
+          # never touches them). Both cellar lines share the one universal digest.
+          sed -i '' -E "s|^([[:space:]]*)sha256 \"[0-9a-fA-F]{64}\"|\1sha256 \"${SRC_SHA}\"|" "$dest"
+          # Use @ as the s-delimiter: the alternation's own `|` would otherwise be
+          # read as the delimiter (BSD sed: "parentheses not balanced").
+          sed -i '' -E "s@(sha256 cellar: :any_skip_relocation, (arm64_ventura|ventura):[[:space:]]*\")[0-9a-fA-F]{64}\"@\1${BOTTLE_SHA}\"@g" "$dest"
+          # Fail loudly if a digest didn't land (e.g. an upstream formula reshape):
+          grep -q "\"${SRC_SHA}\"" "$dest" || { echo "::error::source sha not injected into tap formula"; exit 1; }
+          grep -q "${BOTTLE_SHA}" "$dest" || { echo "::error::bottle sha not injected into tap formula"; exit 1; }
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/unbreak.rb
+          if git diff --cached --quiet; then
+            echo "Tap already at ${VERSION}; nothing to push."
+          else
+            git commit -m "unbreak ${VERSION}"
+            git push origin HEAD
+            echo "Mirrored unbreak ${VERSION} to bart-turczynski/homebrew-tap."
+          fi
