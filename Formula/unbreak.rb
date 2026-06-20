@@ -25,7 +25,7 @@ class Unbreak < Formula
   # self-consistent source sha is impossible — the tap repo's copy carries the
   # real digest, and release.yml injects it for the bottle build. This value is a
   # placeholder until mirrored to the tap.
-  sha256 "placeholder_workflow_injects_real_digest_see_RELEASING_md"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
 
   # Prebuilt binary, hosted as a GitHub release asset (see .github/workflows/

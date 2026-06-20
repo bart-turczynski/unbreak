@@ -61,7 +61,7 @@ jobs:
           # tag-driven so the bottle's Cellar path matches the asset filename.
           sed -i '' -E "s|^([[:space:]]*)version \"[^\"]*\"|\1version \"${VERSION}\"|" "$dest"
           sed -i '' -E "s|^([[:space:]]*)url \"[^\"]*\"|\1url \"${url}\"|" "$dest"
-          sed -i '' -E "s|^([[:space:]]*)sha256 \"[a-f0-9]*\"|\1sha256 \"${sha}\"|" "$dest"
+          sed -i '' -E "s|^([[:space:]]*)sha256 \"[^\"]*\"|\1sha256 \"${sha}\"|" "$dest"
 
       - name: Build & relabel the bottle
         id: build
