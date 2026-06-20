@@ -291,4 +291,32 @@ struct SetupRunTests {
         #expect(contents.contains("poll_interval_ms"))
         #expect(contents.contains("max_clipboard_bytes"))
     }
+
+    @Test("install-agent failure writes to stderr and returns non-zero")
+    func installAgentFailure() {
+        let harness = Harness()
+        harness.backend.bootstrapStatus = 5
+
+        let code = SetupCommand.run(.installAgent, environment: harness.environment())
+
+        #expect(code == 1)
+        #expect(harness.stderr.contains("bootstrap"))
+        #expect(harness.stdout.isEmpty)
+    }
+
+    @Test("writeConfigScaffold reports to stderr when writing the config throws")
+    func configWriteFailure() {
+        struct WriteError: Error {}
+        let harness = Harness()
+        harness.detected = [.init(bundleID: "com.apple.Terminal", displayName: "Apple Terminal")]
+        harness.answers = ["n"]
+
+        // Override the environment so writeConfig always throws.
+        var env = harness.environment()
+        env.writeConfig = { _, _ in throw WriteError() }
+
+        _ = SetupCommand.run(.setup(enableAgent: false), environment: env)
+
+        #expect(harness.stderr.contains("could not write"))
+    }
 }

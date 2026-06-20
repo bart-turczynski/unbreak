@@ -69,4 +69,10 @@ struct UndoCommandTests {
         #expect(code == 2)
         #expect(capture.err.contains("undo takes no arguments"))
     }
+
+    @Test("systemEnvironment constructs the production environment without crashing")
+    func systemEnvironment() {
+        // Exercises the closure-building code path; closures are stored, not called.
+        _ = UndoCommand.systemEnvironment()
+    }
 }

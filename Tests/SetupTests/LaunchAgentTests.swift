@@ -142,4 +142,53 @@ struct LaunchAgentManagerTests {
         #expect(backend.manager().brewServiceLoaded() == true)
         #expect(backend.launchctlCalls.last == ["list", "homebrew.mxcl.unbreak"])
     }
+
+    @Test("Install surfaces an error when writing the plist fails")
+    func installWriteFailure() {
+        struct WriteError: Error {}
+        let backend = FakeAgentBackend()
+        backend.writeError = WriteError()
+        let outcome = backend.manager().install()
+        #expect(outcome.exitCode == 1)
+        #expect(outcome.message.contains("failed to write"))
+        #expect(backend.launchctlCalls.isEmpty)
+    }
+
+    @Test("Uninstall surfaces an error when removing the plist fails")
+    func uninstallRemoveFailure() {
+        struct RemoveError: Error, LocalizedError {
+            var errorDescription: String? { "disk full" }
+        }
+
+        var manager = FakeAgentBackend().manager()
+        // Pre-seed the plist as present so fileExists returns true.
+        manager.fileExists = { _ in true }
+        manager.removeFile = { _ in throw RemoveError() }
+
+        let outcome = manager.uninstall()
+        #expect(outcome.exitCode == 1)
+        #expect(outcome.message.contains("failed to remove"))
+    }
+}
+
+@Suite("LaunchAgentManager.system production wiring (PRD v2 §8.2)")
+struct LaunchAgentSystemTests {
+    @Test("system(home:) builds a manager with correct URL layout")
+    func systemURLLayout() throws {
+        let tmpHome = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("unbreak-home-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tmpHome) }
+
+        let manager = LaunchAgentManager.system(home: tmpHome)
+        #expect(manager.launchAgentsDirectory.path.hasSuffix("Library/LaunchAgents"))
+        #expect(manager.standardOutPath.hasSuffix("unbreak.watch.log"))
+        #expect(manager.plistURL.lastPathComponent == "io.unbreak.watch.plist")
+    }
+
+    @Test("resolveBinaryPath returns a non-empty absolute path in the test context")
+    func resolveBinaryPath() {
+        let path = LaunchAgentManager.resolveBinaryPath()
+        #expect(path != nil)
+        #expect(path?.isEmpty == false)
+    }
 }

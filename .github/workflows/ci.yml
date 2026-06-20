@@ -21,8 +21,23 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Test
-        run: make test
+      - name: Test with coverage
+        run: swift test --enable-code-coverage
+
+      - name: Export LCOV
+        run: |
+          PROFDATA=$(find .build -name "default.profdata" | head -1)
+          TESTBIN=$(find .build -name "unbreakPackageTests" -type f | grep -v ".build$" | head -1)
+          xcrun llvm-cov export "$TESTBIN" \
+            --instr-profile="$PROFDATA" \
+            --ignore-filename-regex="\.build|Tests" \
+            --format=lcov > coverage.lcov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.lcov
+          fail_ci_if_error: false
 
       - name: Format check
         run: |
