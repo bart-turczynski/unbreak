@@ -1,6 +1,11 @@
 # unbreak
 
+[![CI](https://github.com/bart-turczynski/unbreak/actions/workflows/ci.yml/badge.svg)](https://github.com/bart-turczynski/unbreak/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/bart-turczynski/unbreak/actions/workflows/codeql.yml/badge.svg)](https://github.com/bart-turczynski/unbreak/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/bart-turczynski/unbreak/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bart-turczynski/unbreak)
+[![Swift versions](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbart-turczynski%2Funbreak%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/bart-turczynski/unbreak)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbart-turczynski%2Funbreak%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/bart-turczynski/unbreak)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > Repairs terminal-wrapped clipboard commands from grid-renderer
 > agent CLIs (Claude Code, Gemini CLI, Codex CLI) so they paste as clean,
