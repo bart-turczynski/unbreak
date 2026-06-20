@@ -27,7 +27,8 @@ jobs:
       - name: Export LCOV
         run: |
           PROFDATA=$(find .build -name "default.profdata" | head -1)
-          TESTBIN=$(find .build -name "unbreakPackageTests" -type f | grep -v ".build$" | head -1)
+          XCTEST=$(find .build -name "unbreakPackageTests.xctest" -type d | head -1)
+          TESTBIN="$XCTEST/Contents/MacOS/unbreakPackageTests"
           xcrun llvm-cov export "$TESTBIN" \
             --instr-profile="$PROFDATA" \
             --ignore-filename-regex="\.build|Tests" \
