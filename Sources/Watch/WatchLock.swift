@@ -20,7 +20,12 @@ import Darwin
 /// failure mode a pidfile has). Advisory `flock` is mutually exclusive across
 /// distinct open file descriptions, so a second watcher *process* is blocked even
 /// though both run the same binary.
-public final class WatchLock {
+///
+/// `@unchecked Sendable`: a lock instance is owned by one execution context — the
+/// daemon's main thread in production, or a single test thread during a handoff
+/// (the spare blocks in `waitUntilAcquired()` on its own thread and is not touched
+/// concurrently). The `flock` itself is enforced by the kernel across descriptors.
+public final class WatchLock: @unchecked Sendable {
     /// The outcome of a non-blocking `acquire()`.
     public enum Acquisition: Equatable, Sendable {
         /// We hold the lock; this process is the sole watcher and may mutate.
@@ -102,4 +107,55 @@ public final class WatchLock {
     }
 
     deinit { release() }
+}
+
+/// How the active (mutating) watch daemon ended up with respect to the
+/// single-instance lock — the outcome of `acquireActiveWatchLock`.
+public enum WatchLockOutcome: Equatable, Sendable {
+    /// We took the lock immediately; this is the sole watcher and may mutate.
+    case active
+    /// Another watcher held it; we stood by and took over once it exited.
+    case tookOverAfterWait
+    /// Dry-run mode never mutates, so it does not contend for the lock.
+    case dryRun
+    /// The lock file could not be opened (carries `errno`); running unguarded.
+    case unguarded(Int32)
+}
+
+/// Bring the active watch daemon up against the single-instance lock (PRD v2 §7.4),
+/// reporting human-readable progress through `warn` and standing by for a handoff
+/// through `waitForHandoff` (injected so the blocking wait can be faked in tests).
+///
+/// Dry-run skips the lock entirely (it never mutates). If another active watcher
+/// already holds the lock, we stand by as a hot spare and take over only when it
+/// exits — avoiding a launchd `KeepAlive` restart loop when both a brew-services
+/// agent and an `unbreak setup` LaunchAgent are installed. A lock the OS refuses to
+/// open degrades to running unguarded rather than disabling the feature.
+public func acquireActiveWatchLock(
+    _ lock: WatchLock,
+    dryRun: Bool,
+    warn: (String) -> Void,
+    waitForHandoff: (WatchLock) -> Void = { $0.waitUntilAcquired() }
+) -> WatchLockOutcome {
+    guard !dryRun else { return .dryRun }
+
+    switch lock.acquire() {
+    case .acquired:
+        return .active
+    case .heldByAnother:
+        warn(
+            "unbreak: another watcher is already active; standing by until it exits "
+                + "(only one watcher may mutate the clipboard — you likely have both "
+                + "`brew services` and `unbreak setup` agents installed)"
+        )
+        waitForHandoff(lock)
+        warn("unbreak: previous watcher exited; this watcher is now active")
+        return .tookOverAfterWait
+    case .unavailable(let code):
+        warn(
+            "unbreak: could not acquire the watch lock (errno \(code)); "
+                + "continuing without the single-instance guard"
+        )
+        return .unguarded(code)
+    }
 }
