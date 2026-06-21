@@ -187,14 +187,27 @@ public struct LaunchAgentManager {
                 exitCode: 1
             )
         }
-        return Outcome(
-            message: """
-                unbreak: watcher LaunchAgent installed (\(LaunchAgent.label)) and started.
-                It runs at login and fixes the clipboard on copy only when every gate passes.
-                Remove it any time with `unbreak uninstall-agent`.
-                """,
-            exitCode: 0
-        )
+        var message = """
+            unbreak: watcher LaunchAgent installed (\(LaunchAgent.label)) and started.
+            It runs at login and fixes the clipboard on copy only when every gate passes.
+            Remove it any time with `unbreak uninstall-agent`.
+            """
+        // A pre-existing `brew services start unbreak` watcher runs under brew's own
+        // label, which this manager does not touch (stopping a brew-managed service is
+        // brew's job — same reasoning as the binary, §9). With two watchers loaded the
+        // §7.4 lock keeps only one mutating, but the brew one is now redundant — point
+        // the user at the command to retire it so enablement stays single-source.
+        if brewServiceLoaded() {
+            message += """
+
+
+                Note: a Homebrew-managed watcher (\(LaunchAgentManager.brewServiceLabel)) is also
+                running. The single-instance lock keeps only one watcher mutating, but the brew
+                one is now redundant — retire it with:
+                    brew services stop unbreak
+                """
+        }
+        return Outcome(message: message, exitCode: 0)
     }
 
     /// Bootout the agent and remove its plist. A missing plist is reported as an

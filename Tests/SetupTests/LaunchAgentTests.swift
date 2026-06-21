@@ -95,6 +95,24 @@ struct LaunchAgentManagerTests {
         #expect(backend.launchctlCalls[1][0] == "bootstrap")
     }
 
+    @Test("Install does not nag about brew services when none is loaded")
+    func installNoBrewServiceHint() {
+        let backend = FakeAgentBackend()  // brewServiceLoaded defaults to false
+        let outcome = backend.manager().install()
+        #expect(outcome.exitCode == 0)
+        #expect(!outcome.message.contains("brew services stop"))
+    }
+
+    @Test("Install flags a redundant brew-services watcher and how to retire it")
+    func installWarnsAboutBrewService() {
+        let backend = FakeAgentBackend()
+        backend.brewServiceLoaded = true
+        let outcome = backend.manager().install()
+        #expect(outcome.exitCode == 0)
+        #expect(outcome.message.contains("homebrew.mxcl.unbreak"))
+        #expect(outcome.message.contains("brew services stop unbreak"))
+    }
+
     @Test("Install refuses when the binary path cannot be resolved")
     func installNoBinary() {
         let backend = FakeAgentBackend()

@@ -65,25 +65,17 @@ class Unbreak < Formula
     bin.install ".build/apple/Products/Release/unbreak"
   end
 
-  # `brew services start unbreak` generates the per-user launchd plist — no
-  # hardcoded path or username (§9). The watcher only mutates the clipboard when
-  # every §7 gate passes.
-  service do
-    run [opt_bin/"unbreak", "--watch"]
-    run_type :immediate
-    keep_alive true
-    log_path var/"log/unbreak.watch.log"
-    error_log_path var/"log/unbreak.watch.log"
-  end
-
+  # No `service do` block on purpose (§9). The watcher is enabled solely through
+  # `unbreak setup` / `unbreak install-agent`, which install the per-user
+  # `io.unbreak.watch` LaunchAgent. A parallel `brew services` watcher
+  # (`homebrew.mxcl.unbreak`) would be a *second* daemon the tool can't see, and two
+  # watchers double-process every copy and corrupt it. One canonical mechanism keeps
+  # enablement single-source-of-truth; the §7.4 single-instance lock is the backstop.
   def caveats
     <<~EOS
       The clipboard watcher is OFF until you opt in — `brew install` only puts the
-      CLI on your PATH. Turn it on with either:
-
-        brew services start unbreak     # run the watcher at login (launchd)
-
-      or the guided setup, which detects your terminals and writes a config first:
+      CLI on your PATH. Turn it on with the guided setup, which detects your
+      terminals, writes a config, and installs the login watcher:
 
         unbreak setup
 

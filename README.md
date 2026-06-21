@@ -52,8 +52,9 @@ brew install bart-turczynski/tap/unbreak
 ```
 
 `brew install` only puts the `unbreak` CLI on your `PATH`. The clipboard watcher is
-**off until you opt in** — enable it at login with `brew services start unbreak`, or
-run the guided `unbreak setup`.
+**off until you opt in** — enable it at login with the guided `unbreak setup` (the
+single canonical way to turn the watcher on; it also writes the terminal allowlist
+the watcher needs).
 
 No Homebrew? Use the fallback installer (builds from source the same way):
 

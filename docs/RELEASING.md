@@ -20,8 +20,9 @@ The GitHub handle is `bart-turczynski`. It appears in
    ```
 
    `brew install` only puts the CLI on `PATH`; the watcher is off until the user
-   opts in (`brew services start unbreak` or `unbreak setup`). The formula's
-   `caveats` says so.
+   opts in via `unbreak setup` (the single canonical enablement path — the formula
+   ships no `service` block, so there is no `brew services` watcher to conflict
+   with). The formula's `caveats` says so.
 
 4. **Grant the release workflow push access to the tap.** `release.yml` mirrors
    the formula into the tap on every final tag, which is a *cross-repo* push — the
