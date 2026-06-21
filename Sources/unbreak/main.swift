@@ -57,6 +57,12 @@ case .run(let arguments):
 /// allowlist/size bound/thresholds, the wrap profile, and the poll interval.
 func runWatchDaemon(dryRun: Bool, options: RepairOptions, config: UnbreakConfig) -> Never {
     #if canImport(AppKit)
+    // Single-instance guard (§7.4): only one *mutating* watcher may run, or two
+    // daemons double-process every copy and corrupt it. Held for the process
+    // lifetime; dry-run never mutates so it does not contend for the lock.
+    let lock = acquireWatchLock(dryRun: dryRun)
+    _ = lock  // retained so the lock stays taken for the lifetime of the process
+
     let watcher = Watcher.system()
     let session = WatchSession(
         watcher: watcher,
@@ -105,4 +111,36 @@ func runWatchDaemon(dryRun: Bool, options: RepairOptions, config: UnbreakConfig)
     FileHandle.standardError.write(Data("unbreak: watch mode requires macOS\n".utf8))
     exit(1)
     #endif
+}
+
+/// Take the single-instance watch lock (§7.4). Dry-run never mutates, so it skips
+/// the lock entirely. If another active watcher already holds it, stand by as a hot
+/// spare and take over only when it exits — this avoids a launchd `KeepAlive`
+/// restart loop when a user has both a brew-services agent and an `unbreak setup`
+/// LaunchAgent installed. Returns the lock so the caller retains it for the process
+/// lifetime.
+func acquireWatchLock(dryRun: Bool) -> WatchLock {
+    let lock = WatchLock()
+    guard !dryRun else { return lock }
+
+    switch lock.acquire() {
+    case .acquired:
+        break
+    case .heldByAnother:
+        let standby =
+            "unbreak: another watcher is already active; standing by until it exits "
+            + "(only one watcher may mutate the clipboard — you likely have both "
+            + "`brew services` and `unbreak setup` agents installed)\n"
+        FileHandle.standardError.write(Data(standby.utf8))
+        lock.waitUntilAcquired()
+        FileHandle.standardError.write(
+            Data("unbreak: previous watcher exited; this watcher is now active\n".utf8)
+        )
+    case .unavailable(let code):
+        let warning =
+            "unbreak: could not acquire the watch lock (errno \(code)); "
+            + "continuing without the single-instance guard\n"
+        FileHandle.standardError.write(Data(warning.utf8))
+    }
+    return lock
 }

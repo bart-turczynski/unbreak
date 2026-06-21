@@ -88,6 +88,11 @@ public final class Clipboard {
     /// have not written yet.
     public private(set) var lastSelfWriteChangeCount: Int?
 
+    /// The exact text our most recent `write(_:)` put on the clipboard, or `nil` if
+    /// we have not written yet. Backs the content-based self-write guard
+    /// (`isSelfWriteContent`).
+    public private(set) var lastSelfWriteContent: String?
+
     public init(backend: PasteboardBackend) {
         self.backend = backend
     }
@@ -105,8 +110,10 @@ public final class Clipboard {
 
     public func hasPlainText() -> Bool { backend.hasPlainText() }
 
-    /// Rewrite the clipboard's plain text and remember the resulting change count.
+    /// Rewrite the clipboard's plain text and remember both the resulting change
+    /// count and the exact text written, for the two self-write guards (§7.4).
     public func write(_ string: String) {
+        lastSelfWriteContent = string
         lastSelfWriteChangeCount = backend.writePlainText(string)
     }
 
@@ -114,5 +121,16 @@ public final class Clipboard {
     /// change is ours, not a user copy, and the watcher must ignore it (§7.4).
     public func isSelfWrite(_ changeCount: Int) -> Bool {
         lastSelfWriteChangeCount == changeCount
+    }
+
+    /// Whether `content` is byte-for-byte what our last `write(_:)` put on the
+    /// clipboard — our own repaired output coming back around. This is the
+    /// content-based idempotency guard, distinct from the `changeCount` guard: it
+    /// catches our output even when it returns under a `changeCount` we did not
+    /// record (a manual re-copy, or — before the single-instance lock — a second
+    /// watcher's identical rewrite). Re-repairing our own output is exactly the
+    /// double-process that corrupts the clipboard (§7.4).
+    public func isSelfWriteContent(_ content: String) -> Bool {
+        lastSelfWriteContent == content
     }
 }

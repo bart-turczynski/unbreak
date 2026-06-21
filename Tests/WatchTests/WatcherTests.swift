@@ -106,6 +106,42 @@ struct WatcherTests {
         #expect(copy.content == "git pull")
     }
 
+    @Test("Our repaired output coming back under a new changeCount is swallowed (idempotency)")
+    func ignoresSelfWriteByContent() {
+        let fake = FakePasteboard()
+        let (watcher, clip) = makeWatcher(fake)
+
+        var fired = false
+        watcher.onExternalCopy = { _ in fired = true }
+
+        clip.write("repaired text")  // our mutation
+        #expect(watcher.poll() == .selfWrite)  // caught by the changeCount guard
+
+        // Simulate the exact same payload reappearing under a *different*
+        // changeCount the count-based guard won't match — e.g. a second watcher's
+        // identical rewrite, or a manual re-copy. The content guard must still
+        // swallow it so the repair never runs over our own output twice.
+        fake.userCopy("repaired text")
+        #expect(watcher.poll() == .selfWrite)
+        #expect(!fired)
+    }
+
+    @Test("A genuinely different copy after our write is still detected")
+    func contentGuardDoesNotSwallowDifferentCopy() {
+        let fake = FakePasteboard()
+        let (watcher, clip) = makeWatcher(fake)
+
+        clip.write("repaired text")
+        #expect(watcher.poll() == .selfWrite)
+
+        fake.userCopy("something else entirely")
+        guard case .externalCopy(let copy) = watcher.poll() else {
+            Issue.record("expected an external copy")
+            return
+        }
+        #expect(copy.content == "something else entirely")
+    }
+
     @Test("Non-plain-text item is surfaced with nil content and isPlainText=false")
     func nonPlainText() {
         let fake = FakePasteboard()

@@ -112,8 +112,16 @@ public final class Watcher: @unchecked Sendable {
         if clipboard.isSelfWrite(current) { return .selfWrite }
 
         let isPlainText = clipboard.hasPlainText()
+        let content = isPlainText ? clipboard.plainText() : nil
+
+        // Idempotency guard (§7.4): if the payload is byte-for-byte our last write
+        // coming back around — under a changeCount the count-based guard above did
+        // not catch — swallow it. Re-running the repair over our own repaired
+        // output is the double-process that corrupts the clipboard.
+        if let content, clipboard.isSelfWriteContent(content) { return .selfWrite }
+
         let copy = ExternalCopy(
-            content: isPlainText ? clipboard.plainText() : nil,
+            content: content,
             isPlainText: isPlainText,
             frontmostBundleID: frontmostBundleID()
         )
