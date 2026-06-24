@@ -27,6 +27,7 @@ jobs:
       - name: Snyk security scan
         run: snyk test
         continue-on-error: true
+        timeout-minutes: 2
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
