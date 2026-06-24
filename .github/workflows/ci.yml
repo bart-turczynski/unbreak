@@ -21,8 +21,11 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Set up Snyk
+        uses: snyk/actions/setup@8e119fbb6c251787721d34ba683ed48eba792766
+
       - name: Snyk security scan
-        uses: snyk/actions/swift@master
+        run: snyk test
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
