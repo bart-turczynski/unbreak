@@ -104,6 +104,18 @@ struct RepairTests {
         #expect(out == input)
     }
 
+    @Test("Preserves a box-drawing diagram's branch alignment (§6.8)")
+    func dedentPreservesBoxDrawingAlignment() {
+        // Line 1 is the diagram's left edge (indent 0); the continuation's 11-space
+        // indent aligns `└` under `┬`. Treating that as a render gutter would flatten
+        // the `└` to column 0 and misalign the tree — the same structural loss rejoin
+        // refuses across box-drawing seams.
+        let input = "punycoder ─┬───> pslr ──> rurl\n           └────────> rurl"
+        let (out, changed) = Repair.degutter(input, tabWidth: 8)
+        #expect(!changed)
+        #expect(out == input)
+    }
+
     @Test("A real gutter on every line (incl. line 1) over nested code still strips")
     func dedentStripsGutterOverNestedCode() {
         // A +2 render gutter prefixes line 1 too, so the indent common to all lines is
