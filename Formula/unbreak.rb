@@ -45,8 +45,8 @@ class Unbreak < Formula
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
     # failed the first tagged build). Both lines share one digest (identical
     # universal tarball under two arch tags).
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "3ca8c74778f14cfc5096e61c3fa36b3126ba631ff9d6da7f5b8a7ed7228f26ad"
-    sha256 cellar: :any_skip_relocation, ventura:       "3ca8c74778f14cfc5096e61c3fa36b3126ba631ff9d6da7f5b8a7ed7228f26ad"
+    sha256 cellar: :any_skip_relocation, arm64_ventura: "142c37956107f936867358a958ac0cb13fa6222ae96673660276bdd5a91a3834"
+    sha256 cellar: :any_skip_relocation, ventura:       "142c37956107f936867358a958ac0cb13fa6222ae96673660276bdd5a91a3834"
   end
 
   depends_on :macos
