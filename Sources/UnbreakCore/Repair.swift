@@ -284,10 +284,24 @@ public enum Repair {
         let indent1 =
             line1Active ? DisplayWidth.leadingWidth(of: lines[0], tabWidth: tabWidth) : gBody
         let distinctBodyLevels = Set(bodyIndents).count
-        let structuralCode = line1Active && indent1 < gBody && distinctBodyLevels >= 3
-        // Structural code: the gutter is only line 1's own indent (often 0), so its
-        // nesting survives. Otherwise the body minimum is the render gutter.
-        let g = structuralCode ? indent1 : gBody
+        // A real render gutter prefixes *every* line, so it also indents line 1 to at
+        // least the body minimum (that path lands in `indent1 >= gBody` below and still
+        // strips). Only when line 1 sits *below* gBody is the indent ambiguous (§5
+        // Case 3 clip vs. genuine structure), and two tells say the body indent is
+        // structure to keep, not a gutter to flatten:
+        let line1BelowBody = line1Active && indent1 < gBody
+        //   - source code: ≥3 distinct body indent levels are unmistakable nesting (§6.8)
+        let structuralCode = line1BelowBody && distinctBodyLevels >= 3
+        //   - box-drawing: when line 1 *itself* draws (e.g. `punycoder ─┬──> …`), the
+        //     body indent aligns the continuation under it (`└` under `┬`); flattening
+        //     it misaligns the drawing — the same structural loss `rejoin` already
+        //     refuses across box-drawing seams. Keyed on line 1, not the whole block,
+        //     so a prose line clipped above a uniformly-guttered TUI table (line 1 is
+        //     not part of the drawing) still strips its render gutter.
+        let structuralDiagram = line1BelowBody && containsBoxDrawing(lines[0])
+        // Structural content: the gutter is only line 1's own indent (often 0), so its
+        // nesting/alignment survives. Otherwise the body minimum is the render gutter.
+        let g = (structuralCode || structuralDiagram) ? indent1 : gBody
         guard g > 0 else { return (text, false) }
 
         var out: [String] = []
