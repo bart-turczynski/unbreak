@@ -41,6 +41,10 @@ case .help:
     print(CLI.helpText)
     exit(0)
 
+case .version:
+    print("unbreak \(unbreakVersion)")
+    exit(0)
+
 case .error(let message):
     FileHandle.standardError.write(Data("unbreak: \(message)\n".utf8))
     exit(2)

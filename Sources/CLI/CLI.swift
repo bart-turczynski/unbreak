@@ -50,6 +50,7 @@ public enum CLI {
     public enum Parsed: Equatable {
         case run(Arguments)
         case help
+        case version
         /// A usage error; the message is printed to stderr and exit code 2 used.
         case error(String)
     }
@@ -68,6 +69,7 @@ public enum CLI {
                                       (skip the §6.2 paragraph reflow, on by default)
           unbreak --split-padding-artifacts
                                       enable the lossy merge-artifact split (§6.5)
+          unbreak --version, -V         print the version and exit
 
         WATCH MODE (opt-in, §7) — fixes the clipboard hands-free on copy, but ONLY
         when every gate passes (allowlisted terminal frontmost, plain text, small,
@@ -100,6 +102,9 @@ public enum CLI {
             let arg = argv[index]
             if arg == "-h" || arg == "--help" {
                 return .help
+            }
+            if arg == "-V" || arg == "--version" {
+                return .version
             }
             if let toggle = toggles[arg] {
                 toggle(&builder)

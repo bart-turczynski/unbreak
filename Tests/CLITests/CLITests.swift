@@ -109,6 +109,17 @@ struct CLIParseTests {
         #expect(CLI.parse(["-h"]) == .help)
     }
 
+    @Test("--version / -V short-circuits to the version case")
+    func version() {
+        #expect(CLI.parse(["--version"]) == .version)
+        #expect(CLI.parse(["-V"]) == .version)
+    }
+
+    @Test("helpText lists the --version flag")
+    func helpMentionsVersion() {
+        #expect(CLI.helpText.contains("--version"))
+    }
+
     @Test("An unknown flag is a usage error")
     func unknownFlag() {
         guard case .error = CLI.parse(["--nope"]) else {
