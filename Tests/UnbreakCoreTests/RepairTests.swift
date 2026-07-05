@@ -437,6 +437,53 @@ struct RepairTests {
         #expect(!Repair.endsWithComment("plain command with no hash"))
     }
 
+    @Test("quoteOpenAtLineEnd: tracks a quote open across newlines")
+    func quoteOpenDetector() {
+        // A `-c "` opener stays open until the closing quote on the last line.
+        let script = Repair.splitLines(".venv/bin/python -c \"\nimport os\nprint(os)\n\"")
+        #expect(Repair.quoteOpenAtLineEnd(script) == [true, true, true, false])
+        // Single quotes carry the same way; a double quote inside them is literal.
+        let single = Repair.splitLines("bash -c '\necho \"hi\"\n'")
+        #expect(Repair.quoteOpenAtLineEnd(single) == [true, true, false])
+        // A balanced line (both quotes close) leaves nothing open.
+        #expect(Repair.quoteOpenAtLineEnd(["echo \"one\" 'two'"]) == [false])
+        // A `\"` inside a double quote does not close it; an unquoted `#` comment
+        // never opens a string.
+        #expect(Repair.quoteOpenAtLineEnd(["echo \"a\\\"b\""]) == [false])
+        #expect(Repair.quoteOpenAtLineEnd(["echo hi  # a \"stray quote"]) == [false])
+    }
+
+    @Test("Inline `python -c \"…\"` script is never collapsed onto one line")
+    func inlineQuotedScriptNotMerged() {
+        // The screaming-frog borked-copy defect: short quoted body lines clustered
+        // into a spurious narrow wrap column and got merged, breaking indentation.
+        let script = """
+            .venv/bin/python -c "
+            from screamingfrog import list_crawls
+            crawls = list_crawls()
+            print('found', len(crawls), 'crawls')
+            for c in crawls[:10]:
+                print(f'{c.db_id}  {c.percent_complete:5.1f}%  {c.url}')
+            "
+            """
+        #expect(Repair.repair(script).text == script)
+        // Content on the opener line (body does not start on its own line) is
+        // protected too, and joinAll may not override it.
+        let inline = "python3 -c \"import os\nprint(os.getcwd())\nprint(len(os.listdir()))\""
+        #expect(Repair.repair(inline).text == inline)
+        #expect(Repair.repair(inline, options: .init(joinAll: true)).text == inline)
+    }
+
+    @Test("A genuinely wrapped long quoted argument still rejoins (not a literal script)")
+    func wrappedQuotedArgumentStillRejoins() {
+        // Full-width lines inside a quote are a real overflow wrap, not typed script
+        // lines — the width floor keeps them rejoinable (mirrors the F3 golden lock).
+        let head = "git commit -m \"" + String(repeating: "word ", count: 16)  // ~95 cols
+        let wrapped = head + "and\nthen the rest of the message closes here\""
+        let out = Repair.repair(wrapped).text
+        #expect(!out.dropLast().contains("\n"), "wrapped quoted argument should be one line")
+    }
+
     // MARK: §6.8 Structure preservation (§5 Cases 3/4/6 round-trips)
 
     @Test("Case 3: a partially selected first line dedents to the continuation gutter")
