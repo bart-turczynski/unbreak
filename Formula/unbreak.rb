@@ -40,13 +40,13 @@ class Unbreak < Formula
   # only system libs + the OS Swift runtime).
   bottle do
     root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.7.2"
-    # Real v0.7.0 bottle digest, produced by release.yml. On the NEXT bump keep
+    # Real v0.7.2 bottle digest, produced by release.yml. On the NEXT bump keep
     # valid 64-hex values here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
     # failed the first tagged build). Both lines share one digest (identical
     # universal tarball under two arch tags).
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "142c37956107f936867358a958ac0cb13fa6222ae96673660276bdd5a91a3834"
-    sha256 cellar: :any_skip_relocation, ventura:       "142c37956107f936867358a958ac0cb13fa6222ae96673660276bdd5a91a3834"
+    sha256 cellar: :any_skip_relocation, arm64_ventura: "b8b28550eaed6f5d19e1a03dedd2b72f2acd2ee81acc757b4cb0e98fce905f3a"
+    sha256 cellar: :any_skip_relocation, ventura:       "b8b28550eaed6f5d19e1a03dedd2b72f2acd2ee81acc757b4cb0e98fce905f3a"
   end
 
   depends_on :macos
