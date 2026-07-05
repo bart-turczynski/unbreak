@@ -1,0 +1,7 @@
+.venv/bin/python -c "
+from screamingfrog import list_crawls
+crawls = list_crawls()
+print('found', len(crawls), 'crawls')
+for c in crawls[:10]:
+    print(f'{c.db_id}  {c.urls_crawled:>7} urls  {c.percent_complete:5.1f}%  {c.modified:%Y-%m-%d %H:%M}  {c.url}')
+"

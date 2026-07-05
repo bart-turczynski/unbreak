@@ -343,6 +343,10 @@ public enum Repair {
         }
 
         let widths = lines.map { DisplayWidth.width(of: $0, tabWidth: profile.tabWidth) }
+        // Whether the newline after each line falls *inside* an open quoted string
+        // (an inline `python -c "…"` / `bash -c '…'` script), used by the
+        // quoted-script seam guard below.
+        let quoteOpen = quoteOpenAtLineEnd(lines)
         let detected = options.forcedWidth ?? detectWidth(widths)
         // With no detectable wrap column we only act under `--join-all`; otherwise
         // the text is returned untouched. `--join-all` then collapses through the
@@ -478,9 +482,21 @@ public enum Repair {
                 // broader seam test: a wide boundary token alone (e.g. a long path next
                 // to a fresh command, `~/p` + `python3`) is not evidence of a wrap.
                 let nextStartsCommand = !isFragment(i) && startsFreshCommand(lines[i + 1])
+                // A newline inside an open single/double-quoted string is literal
+                // content — an inline `python -c "…"` / `bash -c '…'` script whose
+                // lines the user typed, not a soft wrap. Never merge across it, or the
+                // whole script collapses onto one line and breaks (the screaming-frog
+                // borked-copy defect: short quoted body lines happened to cluster into
+                // a spurious narrow "wrap column"). A *genuinely* wrapped long quoted
+                // argument is exempt: only a short left line (below a plausible wrap
+                // column) is a literal script line — a full-width one (F3's wrapped
+                // `git commit -m "…"`) is a real overflow wrap and still rejoins. Binds
+                // even under joinAll, like the list / box-drawing / comment / command
+                // guards: flattening a quoted script is never what the user meant.
+                let quotedScriptSeam = quoteOpen[i] && widths[i] < minTwoLineWrapColumn
                 let isWrap = isFull && !endsContinuation && nextNonBlank && !nextIndented
                 if !nextIsListItem && !touchesBoxDrawing && !leftEndsWithComment
-                    && !nextStartsCommand
+                    && !nextStartsCommand && !quotedScriptSeam
                     && (options.joinAll || isWrap)
                 {
                     // Mid-token char-wrap (§5 Case 4): when the seam fell inside one
