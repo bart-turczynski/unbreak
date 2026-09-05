@@ -39,10 +39,10 @@ ported anywhere — do not re-add them expecting a GitLab equivalent to exist:
 
 ## One-time tap setup
 
-1. Create a public repo `bart-turczynski/homebrew-tap` on GitLab. (As of this
-   writing that repo does not exist yet — its creation is a human-approved step;
-   the release pipeline below never creates it itself, and its tap-mirror job
-   fails loudly and non-blockingly until it exists.)
+1. Create a public repo `bart-turczynski/homebrew-tap` on GitLab. (Done —
+   project id `86130104`, public, default branch `main`. Creating it is a
+   human-approved step; the release pipeline below never creates it itself, and
+   its tap-mirror job fails loudly and non-blockingly if it is missing.)
 2. Copy `Formula/unbreak.rb` into it at `Formula/unbreak.rb`.
 3. Users then install with the **two-argument `brew tap` form**. Homebrew's tap
    shorthand (`brew tap user/repo`) defaults to assuming the tap is hosted on
@@ -51,8 +51,16 @@ ported anywhere — do not re-add them expecting a GitLab equivalent to exist:
 
    ```sh
    brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+   brew trust bart-turczynski/tap
    brew install bart-turczynski/tap/unbreak
    ```
+
+   The `brew trust` step is required from **Homebrew 6.0.22**, which refuses to
+   load formulae from any non-official tap until they are trusted
+   (`Refusing to load formula ... from untrusted tap`). It is Homebrew-wide, not
+   specific to this tap or to GitLab hosting. `brew trust --formula
+   bart-turczynski/tap/unbreak` is the narrower alternative Homebrew suggests.
+   Keep both this and the README's install snippet in step with each other.
 
    `brew install` only puts the CLI on `PATH`; the watcher is off until the user
    opts in via `unbreak setup` (the single canonical enablement path — the formula
@@ -170,6 +178,7 @@ the formula bump comes first, then the tag, then the pipeline fills in the bottl
    brew uninstall unbreak 2>/dev/null || true
    brew untap bart-turczynski/tap 2>/dev/null || true
    brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+   brew trust bart-turczynski/tap             # Homebrew 6.0.22+; without it the install refuses to load the formula
    brew install bart-turczynski/tap/unbreak   # should download the bottle, not compile
    brew test unbreak                          # runs the stdin-repair test block
    brew style ./Formula/unbreak.rb
