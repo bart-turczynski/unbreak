@@ -14,9 +14,18 @@ repos:
     hooks:
       - id: verify
         name: verify (mirrors CI)
-        entry: bash -c "make build && make test"
+        # Output is funnelled through a log and only summarised, because
+        # pre-commit writes a hook's captured output to a non-blocking stdout
+        # inside the git hook; the ~360 lines this suite emits overflow that
+        # and kill the push with `BlockingIOError: [Errno 35]`. Keep the
+        # printed output small: one line on success, a bounded tail on
+        # failure. `verbose` is off for the same reason -- it forces the
+        # success-path write that triggers the crash.
+        entry: >-
+          bash -c 'log=$(mktemp); if make build >"$log" 2>&1 && make test >>"$log" 2>&1;
+          then tail -n 1 "$log"; rm -f "$log";
+          else echo "verify FAILED - last 60 lines:"; tail -n 60 "$log"; rm -f "$log"; exit 1; fi'
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-        verbose: true
