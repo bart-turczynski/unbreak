@@ -14,7 +14,7 @@ repos:
     hooks:
       - id: verify
         name: verify (mirrors CI)
-        entry: bash -c "swift build && swift test"
+        entry: bash -c "make build && make test"
         language: system
         pass_filenames: false
         always_run: true
