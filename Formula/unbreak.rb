@@ -39,8 +39,13 @@ class Unbreak < Formula
   # `:any_skip_relocation` is correct: the binary hardcodes no Cellar path (links
   # only system libs + the OS Swift runtime).
   bottle do
-    root_url "https://github.com/bart-turczynski/unbreak/releases/download/v0.7.2"
-    # Real v0.7.2 bottle digest, produced by release.yml. On the NEXT bump keep
+    # GitLab Releases hold asset *links*, not bytes, so the bottle is hosted in
+    # this project's generic package registry (public, since the project is).
+    # Homebrew appends "<name>-<version>.<tag>.bottle.tar.gz" to root_url, so the
+    # path must stop at the version. Project is addressed by numeric id (85027527)
+    # because the API path does not accept the namespaced path unencoded.
+    root_url "https://gitlab.com/api/v4/projects/85027527/packages/generic/unbreak/0.7.2"
+    # Real v0.7.2 bottle digest, produced by the release pipeline. On the NEXT bump keep
     # valid 64-hex values here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
     # failed the first tagged build). Both lines share one digest (identical
