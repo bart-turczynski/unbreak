@@ -3,7 +3,7 @@
 # unbreak uninstaller (PRD v2 §9) — the counterpart to install.sh, for users who
 # installed via the curl one-liner rather than Homebrew.
 #
-#   curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/uninstall.sh | bash
+#   curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/uninstall.sh | bash
 #
 # It runs `unbreak uninstall` to tear down the login watcher, logs, undo socket,
 # and config, then removes the `unbreak` binary itself. Homebrew users should run
@@ -25,7 +25,7 @@ for arg in "$@"; do
       cat <<'USAGE'
 unbreak uninstaller (for users who installed without Homebrew).
 
-  curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/uninstall.sh | bash
+  curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/uninstall.sh | bash
 
 Tears down unbreak state (login watcher, logs, undo socket, config) and removes the
 `unbreak` binary. Homebrew users: run `brew uninstall unbreak` instead.

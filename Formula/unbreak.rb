@@ -14,10 +14,10 @@
 # block — see docs/RELEASING.md.
 class Unbreak < Formula
   desc "Repair terminal-wrapped clipboard commands from TUI coding agents"
-  homepage "https://github.com/bart-turczynski/unbreak"
+  homepage "https://gitlab.com/bart-turczynski/unbreak"
   # Source tarball for the tagged release. `version` is explicit so users update
   # only on a bump, not on every tap refresh.
-  url "https://github.com/bart-turczynski/unbreak/archive/refs/tags/v0.7.2.tar.gz"
+  url "https://gitlab.com/bart-turczynski/unbreak/-/archive/v0.7.2/unbreak-v0.7.2.tar.gz"
   version "0.7.2"
   # Digest of the v0.2.0 source tarball (see docs/RELEASING.md):
   #   curl -fsSL .../v0.2.0.tar.gz | shasum -a 256
