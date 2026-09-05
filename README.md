@@ -22,6 +22,7 @@ the formula builds from source, so without them the install fails. Then:
 
 ```sh
 brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+brew trust bart-turczynski/tap             # Homebrew 6.0.22+ requires this for any third-party tap
 brew install unbreak                       # puts the CLI on PATH
 unbreak setup                              # detect your terminals, write config, enable the watcher
 ```
@@ -29,6 +30,12 @@ unbreak setup                              # detect your terminals, write config
 Homebrew's one-argument tap shorthand (`brew tap bart-turczynski/tap`) assumes the
 tap is hosted on GitHub, so it cannot resolve this GitLab-hosted tap — the
 two-argument form above, which takes any git URL, is required.
+
+Homebrew 6.0.22 added **tap trust** and refuses to load formulae from any
+non-official tap until trusted, so without the `brew trust` line `brew install`
+stops with `Refusing to load formula ... from untrusted tap`. Homebrew suggests
+the narrower `brew trust --formula bart-turczynski/tap/unbreak` if you would
+rather not trust future additions to the tap.
 
 `brew install` alone does **not** start the always-on behavior — it only installs
 the CLI. `unbreak setup` is the step that detects which terminals you use, writes
@@ -52,6 +59,7 @@ toolchain needed):
 
 ```sh
 brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+brew trust bart-turczynski/tap
 brew install unbreak
 ```
 
@@ -59,6 +67,13 @@ Homebrew's one-argument tap shorthand (`brew tap user/repo`, and the matching
 `brew install user/repo/formula` before the tap is registered) assumes GitHub
 hosting, so it cannot resolve this GitLab-hosted tap — the two-argument form
 above, which takes any git URL, is required the first time.
+
+The `brew trust` line is also required the first time: Homebrew 6.0.22 added tap
+trust and will not load a non-official tap's formulae until you trust them,
+failing with `Refusing to load formula ... from untrusted tap`. This is
+Homebrew-wide behavior affecting every third-party tap. To trust only this
+formula instead of the whole tap, use
+`brew trust --formula bart-turczynski/tap/unbreak`.
 
 `brew install` only puts the `unbreak` CLI on your `PATH`. The clipboard watcher is
 **off until you opt in** — enable it at login with the guided `unbreak setup` (the
