@@ -84,6 +84,39 @@ curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/uninst
 
 (The curl uninstaller runs `unbreak uninstall` for you and then deletes the binary.)
 
+## Troubleshooting
+
+Watch mode logs every gate decision — never the clipboard contents (§7.3) — to
+`~/Library/Logs/unbreak.log`, one line per copy:
+
+```
+2026-06-20T22:20:20Z frontmost=com.apple.Terminal decision=mutate bytes=1483 lines=28 wrapConf=0.92 shell=0.00 struct=0.10
+```
+
+**Copies come back mangled, and every event is logged twice.** Two watcher
+daemons are running, and each one repairs the other's output — the second pass
+re-merges lines the first already joined. `unbreak setup` installs the
+`io.unbreak.watch` LaunchAgent; a stray `brew services start unbreak` installs a
+*second* daemon under `homebrew.mxcl.unbreak`. The formula ships no `service do`
+block for exactly this reason (§9), and the §7.4 `flock` single-instance lock
+(`Sources/Watch/WatchLock.swift`) keeps at most one daemon mutating — but a
+binary older than **v0.7.0** predates that lock. Retire the redundant watcher and
+make sure you are on a build that carries the lock:
+
+```sh
+brew services stop unbreak     # keep only the `unbreak setup` watcher
+brew upgrade unbreak           # v0.7.0+ carries the §7.4 lock
+```
+
+**The CLI repairs a copy that the watcher leaves alone.** They do not run the
+same configuration, so a clean `pbpaste | unbreak -` proves nothing about watch
+mode: the CLI turns paragraph reflow *on* (`RepairOptions(reflowParagraphs:
+true)`, §6.2) while the watcher takes the default — off — and puts every copy
+through the §7 gates first. Reproduce against the **installed** binary, then read
+that copy's log line: a `decision=skip blocked=…` names the gate that vetoed it.
+Use `unbreak --dry-run-watch` to run the daemon log-only and watch decisions
+land without touching the clipboard (§7.2).
+
 ## Layout
 
 ```
