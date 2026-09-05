@@ -1,0 +1,75 @@
+# GitLab CI/CD for unbreak.
+#
+# Runner strategy (decided, do not relitigate):
+#   - The routine gate is the LOCAL pre-push git hook (see
+#     .pre-commit-config.yaml, hook id `verify`, stage `pre-push`). Ordinary
+#     pushes and merge requests are NOT remotely gated, so this file defines
+#     no job that runs on a push or merge-request pipeline.
+#   - This pipeline runs ONLY on tag pipelines (version bumps), mirroring
+#     what .github/workflows/ci.yml used to run on every push, now moved to
+#     the tag boundary. See `workflow:` below.
+#   - The runner is a self-hosted macOS machine, selected via `tags:`
+#     (default, below) — NOT GitLab's hosted `saas-macos-*` images, which are
+#     Premium/Ultimate only and this namespace (bart-turczynski/unbreak,
+#     project 85027527) is on the `free` tier.
+#   - Expected runner tag: `macos`. Whoever registers the runner must tag it
+#     to match (`gitlab-runner register --tag-list macos ...`); this file
+#     does not register a runner, install a launchd service, or run
+#     `gitlab-runner` in any way — config only.
+#
+# Deliberately NOT ported from .github/workflows/ci.yml:
+#   - CodeQL and Dependabot: both are GitHub-native products with no GitLab
+#     equivalent invoked here. They are being retired as part of the GitHub
+#     migration, not replaced (GitLab has its own SAST/dependency scanning,
+#     out of scope for this unit).
+#   - Snyk + Codecov upload: tied to GitHub-only secrets/integrations that no
+#     longer exist for this project; build/test/format-check are the parts
+#     that still apply.
+#
+# Swift toolchain note (carried over from CI): Package.swift declares
+# `swift-tools-version: 6.3` and the suite uses the `Testing` framework
+# (Swift 6+), so the runner needs a Swift 6.3+ toolchain (Xcode 26.x) —
+# whoever provisions the self-hosted runner must match this.
+
+workflow:
+  rules:
+    # Tag pipelines only. No rule matches a branch push or a merge-request
+    # pipeline, so none is created for those.
+    - if: $CI_COMMIT_TAG
+
+default:
+  tags:
+    - macos
+
+stages:
+  - build
+  - test
+  - lint
+  # - release  # CLAU-sgotymce: Homebrew bottle build + tap mirror on tag
+  #            # pipelines, porting .github/workflows/release.yml. Deliberately
+  #            # not implemented in this unit — leave for that ticket.
+
+build:
+  stage: build
+  script:
+    - swift --version
+    - make build
+
+test:
+  stage: test
+  script:
+    # NEVER bare `swift test` here: swift-testing ships as a framework and
+    # standalone Command Line Tools don't pass its search/runtime paths.
+    # `make test` adds them via TEST_FLAGS (see Makefile) — this mirrors the
+    # local pre-push gate exactly.
+    - make test
+
+format-check:
+  stage: lint
+  script:
+    - |
+      if command -v swift-format >/dev/null 2>&1; then
+        swift-format lint --recursive --strict Sources Tests Package.swift
+      else
+        echo "swift-format not available on runner; skipping"
+      fi
