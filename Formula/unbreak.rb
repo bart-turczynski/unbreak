@@ -28,9 +28,10 @@ class Unbreak < Formula
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
 
-  # Prebuilt binary, hosted as a GitHub release asset (see .github/workflows/
-  # release.yml). The job builds a UNIVERSAL (arm64 + x86_64) binary on the
-  # macos-26 runner, then relabels it to the OLDEST supported macOS — ventura =
+  # Prebuilt binary, hosted in this project's GitLab generic package registry
+  # (see the `release` job in .gitlab-ci.yml). The job builds a UNIVERSAL
+  # (arm64 + x86_64) binary on the self-hosted macOS runner, then relabels it
+  # to the OLDEST supported macOS — ventura =
   # Package.swift .macOS(.v13) — under both arch tags, because Homebrew reuses a
   # bottle on a newer OS within the same arch (never older, never across archs).
   # `arm64_ventura` serves Apple Silicon macOS 13+, `ventura` serves Intel 13+.
