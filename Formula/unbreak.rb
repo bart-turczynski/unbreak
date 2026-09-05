@@ -1,9 +1,11 @@
 # Homebrew formula for unbreak (PRD v2 §9).
 #
-# Lives in the tap repo `bart-turczynski/homebrew-tap` as `Formula/unbreak.rb`, so
-# users install with:
+# Lives in the tap repo `bart-turczynski/homebrew-tap` as `Formula/unbreak.rb`.
+# The tap is on GitLab, and Homebrew's one-argument shorthand assumes GitHub, so
+# users tap by URL once and then install by bare name:
 #
-#   brew install bart-turczynski/tap/unbreak
+#   brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+#   brew install unbreak
 #
 # Installs come from a prebuilt **bottle** (see the `bottle do` block) so users
 # need no Swift toolchain. The `install` recipe below still builds from source —
@@ -28,9 +30,10 @@ class Unbreak < Formula
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
 
-  # Prebuilt binary, hosted as a GitHub release asset (see .github/workflows/
-  # release.yml). The job builds a UNIVERSAL (arm64 + x86_64) binary on the
-  # macos-26 runner, then relabels it to the OLDEST supported macOS — ventura =
+  # Prebuilt binary, hosted in this project's GitLab generic package registry
+  # (see the `release` job in .gitlab-ci.yml). The job builds a UNIVERSAL
+  # (arm64 + x86_64) binary on the self-hosted macOS runner, then relabels it
+  # to the OLDEST supported macOS — ventura =
   # Package.swift .macOS(.v13) — under both arch tags, because Homebrew reuses a
   # bottle on a newer OS within the same arch (never older, never across archs).
   # `arm64_ventura` serves Apple Silicon macOS 13+, `ventura` serves Intel 13+.

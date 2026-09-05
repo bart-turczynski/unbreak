@@ -21,14 +21,18 @@ Have the **Xcode Command Line Tools** installed first (`xcode-select --install`)
 the formula builds from source, so without them the install fails. Then:
 
 ```sh
-brew install bart-turczynski/tap/unbreak   # puts the CLI on PATH
+brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+brew install unbreak                       # puts the CLI on PATH
 unbreak setup                              # detect your terminals, write config, enable the watcher
 ```
 
+Homebrew's one-argument tap shorthand (`brew tap bart-turczynski/tap`) assumes the
+tap is hosted on GitHub, so it cannot resolve this GitLab-hosted tap — the
+two-argument form above, which takes any git URL, is required.
+
 `brew install` alone does **not** start the always-on behavior — it only installs
 the CLI. `unbreak setup` is the step that detects which terminals you use, writes
-the allowlist config, and offers to turn on the login watcher. If Homebrew warns
-about an untrusted tap, run `brew tap bart-turczynski/tap` first.
+the allowlist config, and offers to turn on the login watcher.
 
 Just want a one-shot repair without any background watcher? That works straight
 after `brew install`, no setup needed:
@@ -39,24 +43,30 @@ pbpaste | unbreak -                        # repair clipboard text, print to std
 
 ## Install
 
-> **The Homebrew tap is temporarily unavailable** while it is rebuilt on GitLab.
-> Use the installer below in the meantime; this section is updated when the tap
-> is back.
+> The tap moved with the rest of the project from GitHub to GitLab and was
+> newly rebuilt there — if you tapped it before the move, re-tap using the
+> two-argument form below.
 
-Once restored, the tap is the primary path (pours a prebuilt bottle, no Swift
+The tap is the primary install path (pours a prebuilt bottle, no Swift
 toolchain needed):
 
 ```sh
-brew install unbreak      # after tapping — see the tap's own instructions
+brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+brew install unbreak
 ```
+
+Homebrew's one-argument tap shorthand (`brew tap user/repo`, and the matching
+`brew install user/repo/formula` before the tap is registered) assumes GitHub
+hosting, so it cannot resolve this GitLab-hosted tap — the two-argument form
+above, which takes any git URL, is required the first time.
 
 `brew install` only puts the `unbreak` CLI on your `PATH`. The clipboard watcher is
 **off until you opt in** — enable it at login with the guided `unbreak setup` (the
 single canonical way to turn the watcher on; it also writes the terminal allowlist
 the watcher needs).
 
-The fallback installer builds from source (needs the Xcode Command Line Tools)
-and is the working install path right now:
+Without Homebrew, the fallback installer builds from source (needs the Xcode
+Command Line Tools):
 
 ```sh
 curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash

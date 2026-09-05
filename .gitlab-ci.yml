@@ -75,9 +75,11 @@ format-check:
 # --- release ----------------------------------------------------------------
 #
 # Builds a Homebrew bottle (a prebuilt binary) on the tag, uploads it, and
-# publishes a GitLab Release — porting .github/workflows/release.yml (read
-# that file's comments for the Homebrew-specific constraints; only the
-# GitHub-vs-GitLab plumbing changes here, the brew mechanics are unchanged).
+# publishes a GitLab Release — the same Homebrew bottle mechanics as the
+# former GitHub Actions release workflow (`.github/workflows/release.yml`,
+# deleted once this job was proven out), just with GitLab plumbing swapped in
+# for GitHub's. See docs/RELEASING.md's "Cutting a release" section for the
+# end-to-end flow.
 #
 # GitLab Releases hold *links*, not uploaded bytes (unlike a GitHub release,
 # which stores the asset itself) — so the bottle first goes into this
@@ -128,9 +130,10 @@ release:
       fi
 
       # --- Stage formula in a local tap with this tag's real source sha ---
-      # (see .github/workflows/release.yml for why this local-tap detour
-      # exists: the committed formula ships inside the tarball it points at,
-      # so it can never carry a self-consistent source sha256.)
+      # This local-tap detour exists because the committed formula ships
+      # inside the tarball it points at, so it can never carry a
+      # self-consistent source sha256 (same constraint the old GitHub
+      # Actions release workflow worked around identically).
       url="https://gitlab.com/${CI_PROJECT_PATH}/-/archive/${TAG}/${CI_PROJECT_NAME}-${TAG}.tar.gz"
       src_sha="$(curl -fsSL "$url" | shasum -a 256 | awk '{print $1}')"
       echo "Source tarball sha256: ${src_sha}"
