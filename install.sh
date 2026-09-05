@@ -2,7 +2,7 @@
 #
 # unbreak fallback installer (PRD v2 §9) — for users without Homebrew.
 #
-#   curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/install.sh | bash
+#   curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash
 #
 # Builds the `unbreak` binary from a tagged source release and installs it. It does
 # NOT enable the clipboard watcher: per §8.2 the watcher is opt-in. Pass
@@ -11,13 +11,13 @@
 #
 # Overridable via env:
 #   UNBREAK_REPO     owner/repo to fetch from        (default: bart-turczynski/unbreak)
-#   UNBREAK_VERSION  git tag to install              (default: v0.1.0)
+#   UNBREAK_VERSION  git tag to install              (default: v0.7.2)
 #   UNBREAK_PREFIX   install prefix; binary -> $PREFIX/bin/unbreak
 #                  (default: /usr/local if writable, else ~/.local)
 set -euo pipefail
 
 REPO="${UNBREAK_REPO:-bart-turczynski/unbreak}"
-VERSION="${UNBREAK_VERSION:-v0.1.0}"
+VERSION="${UNBREAK_VERSION:-v0.7.2}"
 ENABLE_WATCH=0
 for arg in "$@"; do
   case "$arg" in
@@ -26,7 +26,7 @@ for arg in "$@"; do
       cat <<'USAGE'
 unbreak fallback installer (for users without Homebrew).
 
-  curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/install.sh | bash
+  curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash
 
 Builds and installs the `unbreak` CLI from a tagged source release. The clipboard
 watcher stays OFF unless you pass --enable-watch (or run `unbreak setup` later).
@@ -37,7 +37,7 @@ Options:
 
 Env overrides:
   UNBREAK_REPO       owner/repo to fetch from   (default: bart-turczynski/unbreak)
-  UNBREAK_VERSION    git tag to install         (default: v0.1.0)
+  UNBREAK_VERSION    git tag to install         (default: v0.7.2)
   UNBREAK_PREFIX     install prefix             (default: /usr/local or ~/.local)
 USAGE
       exit 0
@@ -74,7 +74,7 @@ BINDIR="$PREFIX/bin"
 # --- Fetch + build ---------------------------------------------------------
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
-TARBALL="https://github.com/$REPO/archive/refs/tags/$VERSION.tar.gz"
+TARBALL="https://gitlab.com/$REPO/-/archive/$VERSION/unbreak-$VERSION.tar.gz"
 
 echo "unbreak install: downloading $REPO@$VERSION"
 curl -fsSL "$TARBALL" -o "$WORKDIR/src.tar.gz" ||

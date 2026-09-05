@@ -1,7 +1,5 @@
 # unbreak
 
-[![CI](https://github.com/bart-turczynski/unbreak/actions/workflows/ci.yml/badge.svg)](https://github.com/bart-turczynski/unbreak/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/bart-turczynski/unbreak/actions/workflows/codeql.yml/badge.svg)](https://github.com/bart-turczynski/unbreak/actions/workflows/codeql.yml)
 [![codecov](https://codecov.io/gh/bart-turczynski/unbreak/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bart-turczynski/unbreak)
 [![Swift versions](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbart-turczynski%2Funbreak%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/bart-turczynski/unbreak)
 [![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbart-turczynski%2Funbreak%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/bart-turczynski/unbreak)
@@ -44,11 +42,15 @@ pbpaste | unbreak -                        # repair clipboard text, print to std
 
 ## Install
 
-Primary path is a Homebrew tap (builds from source — needs the Xcode Command Line
-Tools). The tap lives at `bart-turczynski/homebrew-tap` (§9).
+> **The Homebrew tap is temporarily unavailable** while it is rebuilt on GitLab.
+> Use the installer below in the meantime; this section is updated when the tap
+> is back.
+
+Once restored, the tap is the primary path (pours a prebuilt bottle, no Swift
+toolchain needed):
 
 ```sh
-brew install bart-turczynski/tap/unbreak
+brew install unbreak      # after tapping — see the tap's own instructions
 ```
 
 `brew install` only puts the `unbreak` CLI on your `PATH`. The clipboard watcher is
@@ -56,10 +58,11 @@ brew install bart-turczynski/tap/unbreak
 single canonical way to turn the watcher on; it also writes the terminal allowlist
 the watcher needs).
 
-No Homebrew? Use the fallback installer (builds from source the same way):
+The fallback installer builds from source (needs the Xcode Command Line Tools)
+and is the working install path right now:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/install.sh | bash
+curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash
 ```
 
 See [`docs/RELEASING.md`](docs/RELEASING.md) for the tap setup and release flow.
@@ -79,7 +82,7 @@ To also remove the binary, follow the printed instruction for your install
 method — `brew uninstall unbreak` for the Homebrew tap, or for the curl install:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bart-turczynski/unbreak/main/uninstall.sh | bash
+curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/uninstall.sh | bash
 ```
 
 (The curl uninstaller runs `unbreak uninstall` for you and then deletes the binary.)
