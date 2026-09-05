@@ -10,6 +10,33 @@ The project lives at **GitLab**: `gitlab.com/bart-turczynski/unbreak` (project i
 `install.sh` (`UNBREAK_REPO` default). The tap lives in a **separate** repo,
 `bart-turczynski/homebrew-tap`, with the formula at `Formula/unbreak.rb`.
 
+## Retired GitHub-only capabilities
+
+The move to GitLab (owner's GitHub account is suspended; every GitHub URL for
+this project is dead) retired the following on purpose. None of these are
+ported anywhere — do not re-add them expecting a GitLab equivalent to exist:
+
+- **CodeQL** (`.github/workflows/codeql.yml`, deleted) — a GitHub-native
+  product with no invocation possible outside GitHub. GitLab has its own
+  SAST/dependency scanning, but wiring that up is out of scope for this
+  migration.
+- **Dependabot** (`.github/dependabot.yml`, deleted) — also GitHub-only.
+  The practical loss is small: `Package.swift` declares zero external Swift
+  package dependencies (only in-repo local targets), so there was nothing
+  for Dependabot's `swift` ecosystem group to ever bump; only its
+  `github-actions` group had real update traffic, and that surface is gone
+  along with `.github/`.
+- **Swift Package Index** — its badges (already removed from the README
+  before this cleanup) are a permanent loss, not a port: SPI only indexes
+  packages hosted on GitHub, so a GitLab-only project cannot appear there.
+- **Codecov** — the upload step in the old `ci.yml` (`codecov/codecov-action`
+  + the README's `/gh/` badge, both already removed) was bound to a
+  GitHub-only secret and integration; it was not ported to
+  `.gitlab-ci.yml`, which runs `build`/`test`/`format-check` without a
+  coverage upload.
+- **Snyk** — the old `ci.yml`'s `snyk/actions/setup` step relied on a
+  GitHub-only `SNYK_TOKEN` secret; not ported for the same reason as Codecov.
+
 ## One-time tap setup
 
 1. Create a public repo `bart-turczynski/homebrew-tap` on GitLab. (As of this
