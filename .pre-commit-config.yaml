@@ -24,7 +24,8 @@ repos:
         entry: >-
           bash -c 'log=$(mktemp); if make build >"$log" 2>&1 && make test >>"$log" 2>&1;
           then tail -n 1 "$log"; rm -f "$log";
-          else echo "verify FAILED - last 60 lines:"; tail -n 60 "$log"; rm -f "$log"; exit 1; fi'
+          else echo "verify FAILED:"; grep -E "^✘|: error:|^make: \*\*\*" "$log" | cut -c1-200 | head -n 40;
+          tail -n 3 "$log"; rm -f "$log"; exit 1; fi'
         language: system
         pass_filenames: false
         always_run: true
