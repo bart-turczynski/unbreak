@@ -30,7 +30,9 @@ The GitHub handle is `bart-turczynski`. It appears in
    scoped to `bart-turczynski/homebrew-tap` with **Contents: read and write**, then
    add it to the `unbreak` repo as the **`TAP_PUSH_TOKEN`** Actions secret
    (`gh secret set TAP_PUSH_TOKEN --repo bart-turczynski/unbreak`). Without it the
-   mirror step fails loudly with instructions.
+   mirror step fails loudly with instructions. Fine-grained PATs expire — if a
+   later release's mirror step fails on a token error, the PAT has most likely
+   lapsed; regenerate it and re-set the secret.
 
 ## Cutting a release
 
