@@ -1,9 +1,11 @@
 # Homebrew formula for unbreak (PRD v2 §9).
 #
-# Lives in the tap repo `bart-turczynski/homebrew-tap` as `Formula/unbreak.rb`, so
-# users install with:
+# Lives in the tap repo `bart-turczynski/homebrew-tap` as `Formula/unbreak.rb`.
+# The tap is on GitLab, and Homebrew's one-argument shorthand assumes GitHub, so
+# users tap by URL once and then install by bare name:
 #
-#   brew install bart-turczynski/tap/unbreak
+#   brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
+#   brew install unbreak
 #
 # Installs come from a prebuilt **bottle** (see the `bottle do` block) so users
 # need no Swift toolchain. The `install` recipe below still builds from source —
