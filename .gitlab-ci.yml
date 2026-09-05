@@ -45,9 +45,7 @@ stages:
   - build
   - test
   - lint
-  # - release  # CLAU-sgotymce: Homebrew bottle build + tap mirror on tag
-  #            # pipelines, porting .github/workflows/release.yml. Deliberately
-  #            # not implemented in this unit — leave for that ticket.
+  - release
 
 build:
   stage: build
@@ -72,4 +70,252 @@ format-check:
         swift-format lint --recursive --strict Sources Tests Package.swift
       else
         echo "swift-format not available on runner; skipping"
+      fi
+
+# --- release ----------------------------------------------------------------
+#
+# Builds a Homebrew bottle (a prebuilt binary) on the tag, uploads it, and
+# publishes a GitLab Release — porting .github/workflows/release.yml (read
+# that file's comments for the Homebrew-specific constraints; only the
+# GitHub-vs-GitLab plumbing changes here, the brew mechanics are unchanged).
+#
+# GitLab Releases hold *links*, not uploaded bytes (unlike a GitHub release,
+# which stores the asset itself) — so the bottle first goes into this
+# project's generic package registry (enabled + publicly readable), and the
+# Release just links to it.
+#
+# Release creation uses the plain Releases API via curl, NOT the `release:`
+# CI/CD keyword and NOT `glab release create`. Reasons:
+#   - The `release:` keyword needs the `release-cli` binary on the runner (or
+#     a Docker image carrying it); this runner is a human-provisioned
+#     self-hosted macOS shell executor and we don't control what's installed
+#     on it beyond the Swift toolchain (see the file header). Requiring a
+#     second CLI to be provisioned there is an extra dependency this unit
+#     shouldn't impose.
+#   - `glab release create` needs `glab` authenticated on the runner (a PAT
+#     or `glab auth login`), a second credential to provision and rotate.
+#   - Plain curl is already relied on above (fetching the tag's source
+#     tarball) and can reuse the SAME `JOB-TOKEN` auth the package upload
+#     needs — one mechanism, one credential, no extra runner setup.
+release:
+  stage: release
+  script:
+    - |
+      set -euo pipefail
+
+      # --- Resolve tag/version -------------------------------------------
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      echo "Releasing ${TAG} (version ${VERSION})"
+
+      # --- Own the version string -----------------------------------------
+      # install.sh's UNBREAK_VERSION default is what the documented
+      # `curl | bash` one-liner installs (it fetches install.sh from `main`,
+      # not from the tag, so nothing else pins it to this release). Nothing
+      # bumps it automatically; it already drifted seven releases stale once
+      # (shipped v0.1.0 to every curl-fallback user) because the bump lived
+      # only in a human's memory. Fail the release loudly here instead of
+      # silently shipping a stale fallback: the formula bump and the
+      # install.sh bump must land in the same pre-tag commit (see
+      # docs/RELEASING.md), and this check is what catches a missed one.
+      default_version="$(grep -oE 'VERSION="\$\{UNBREAK_VERSION:-[^}]*\}"' install.sh \
+        | sed -E 's/.*:-(.*)\}"/\1/')"
+      if [ "${default_version}" != "${TAG}" ]; then
+        echo "install.sh: UNBREAK_VERSION default is '${default_version}', but this release is tagged '${TAG}'." >&2
+        echo "Bump the 'VERSION=\"\${UNBREAK_VERSION:-...}\"' default (and the matching --help text) in install.sh" >&2
+        echo "to '${TAG}' in the SAME pre-tag commit as the Formula/unbreak.rb version bump, then re-tag." >&2
+        exit 1
+      fi
+
+      # --- Stage formula in a local tap with this tag's real source sha ---
+      # (see .github/workflows/release.yml for why this local-tap detour
+      # exists: the committed formula ships inside the tarball it points at,
+      # so it can never carry a self-consistent source sha256.)
+      url="https://gitlab.com/${CI_PROJECT_PATH}/-/archive/${TAG}/${CI_PROJECT_NAME}-${TAG}.tar.gz"
+      src_sha="$(curl -fsSL "$url" | shasum -a 256 | awk '{print $1}')"
+      echo "Source tarball sha256: ${src_sha}"
+      brew tap-new local/unbreak --no-git
+      dest="$(brew --repository local/unbreak)/Formula/unbreak.rb"
+      cp Formula/unbreak.rb "$dest"
+      # BSD sed (macOS runner). Anchored at line start so the source
+      # `url`/`version` lines are hit but the bottle block's `root_url`
+      # (also ends in "url") and its `sha256 cellar: …` lines are not.
+      sed -i '' -E "s|^([[:space:]]*)version \"[^\"]*\"|\1version \"${VERSION}\"|" "$dest"
+      sed -i '' -E "s|^([[:space:]]*)url \"[^\"]*\"|\1url \"${url}\"|" "$dest"
+      sed -i '' -E "s|^([[:space:]]*)sha256 \"[^\"]*\"|\1sha256 \"${src_sha}\"|" "$dest"
+
+      # --- Build & relabel the bottle -------------------------------------
+      # The formula's install recipe builds a UNIVERSAL (arm64 + x86_64)
+      # binary, so this one bottle carries both slices.
+      root_url="https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/generic/unbreak/${VERSION}"
+      brew install --build-bottle local/unbreak/unbreak
+      brew bottle --json --no-rebuild --root-url="${root_url}" local/unbreak/unbreak
+      # `brew bottle` tags the bottle for the build OS. Relabel to the OLDEST
+      # supported macOS — ventura, matching Package.swift .macOS(.v13) —
+      # because Homebrew reuses a bottle tagged for an older OS on newer
+      # systems (never the reverse, never across archs). Publish the SAME
+      # universal tarball under BOTH arch tags: arm64_ventura serves Apple
+      # Silicon 13+, ventura serves Intel 13+. The files are byte-identical
+      # copies (:any_skip_relocation bakes in no OS/path), so they share one
+      # sha256, emitted on both bottle-block lines.
+      built=$(ls unbreak--*.bottle.tar.gz)
+      arm="unbreak-${VERSION}.arm64_ventura.bottle.tar.gz"
+      intel="unbreak-${VERSION}.ventura.bottle.tar.gz"
+      mv "$built" "$arm"
+      cp "$arm" "$intel"
+      bottle_sha=$(shasum -a 256 "$arm" | awk '{print $1}')
+      echo "Universal bottle sha256: ${bottle_sha}"
+
+      # --- Upload the bottle to the generic package registry --------------
+      # Auth: JOB-TOKEN (the CI job's own scoped token) against the generic
+      # packages API — verified live against the v0.7.2 upload: an
+      # interactive OAuth token needed `Authorization: Bearer`, and
+      # `PRIVATE-TOKEN` returned 401, so don't copy that path here.
+      for f in "$arm" "$intel"; do
+        echo "Uploading ${f}"
+        curl --fail --silent --show-error \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$f" \
+          "${root_url}/${f}"
+        echo
+      done
+
+      # --- Create the GitLab Release ---------------------------------------
+      # A hyphenated tag (e.g. v0.1.2-rc1) is a prerelease. GitLab Releases
+      # have no separate prerelease flag (unlike GitHub) — the release is
+      # created either way; what a prerelease skips is the tap mirror below,
+      # so stable users never pour an -rc bottle.
+      release_payload=$(printf '{"tag_name":"%s","name":"%s","description":"%s","assets":{"links":[{"name":"%s","url":"%s","link_type":"package"},{"name":"%s","url":"%s","link_type":"package"}]}}' \
+        "${TAG}" "${TAG}" "unbreak ${TAG}. Homebrew bottle assets attached below (generic package registry)." \
+        "${arm}" "${root_url}/${arm}" "${intel}" "${root_url}/${intel}")
+      release_api="https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/releases"
+      status=$(curl --silent --show-error --output /tmp/release_resp.json --write-out "%{http_code}" \
+        --request POST \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --header "Content-Type: application/json" \
+        --data "${release_payload}" \
+        "${release_api}")
+      if [ "$status" = "201" ]; then
+        echo "Created GitLab release ${TAG}."
+      elif grep -q "has already been taken\|already exists" /tmp/release_resp.json 2>/dev/null; then
+        # Re-run of a tag pipeline: the release exists, so just make sure
+        # both asset links exist too (tolerate "already exists" per link —
+        # same tag means same content, nothing changed).
+        echo "Release ${TAG} already exists; ensuring asset links are present."
+        for entry in "${arm}:${root_url}/${arm}" "${intel}:${root_url}/${intel}"; do
+          name="${entry%%:*}"
+          link_url="${entry#*:}"
+          curl --silent --show-error --output /dev/null --write-out "  %{http_code} link ${name}\n" \
+            --request POST \
+            --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"name\": \"${name}\", \"url\": \"${link_url}\", \"link_type\": \"package\"}" \
+            "${release_api}/${TAG}/assets/links"
+        done
+      else
+        echo "GitLab release creation failed (HTTP ${status}):" >&2
+        cat /tmp/release_resp.json >&2 || true
+        exit 1
+      fi
+
+      # --- Emit the bottle block for the housekeeping paste-back ----------
+      # (docs/RELEASING.md step 4: paste this over the old block in the
+      # in-repo Formula/unbreak.rb so the committed copy stays current.)
+      {
+        echo '## `bottle do` block (the tap is auto-mirrored by the release:mirror-tap job;'
+        echo '## paste this into Formula/unbreak.rb to keep the in-repo copy current)'
+        echo ''
+        echo '  bottle do'
+        echo "    root_url \"${root_url}\""
+        echo "    sha256 cellar: :any_skip_relocation, arm64_ventura: \"${bottle_sha}\""
+        echo "    sha256 cellar: :any_skip_relocation, ventura:       \"${bottle_sha}\""
+        echo '  end'
+      } | tee bottle-block.txt
+
+      # --- Hand SRC_SHA/BOTTLE_SHA to the mirror-tap job -------------------
+      {
+        echo "TAG=${TAG}"
+        echo "VERSION=${VERSION}"
+        echo "SRC_SHA=${src_sha}"
+        echo "BOTTLE_SHA=${bottle_sha}"
+      } > release.env
+  artifacts:
+    paths:
+      - bottle-block.txt
+    reports:
+      dotenv: release.env
+
+# Mirrors the finished formula into the tap repo users install from
+# (bart-turczynski/homebrew-tap), replacing the old GitHub Actions step that
+# pushed with a `TAP_PUSH_TOKEN` repo secret. This is a SEPARATE job (not a
+# step in `release` above) and `allow_failure: true`, so a failure here never
+# fails the release itself — the bottle is already uploaded and the GitLab
+# Release already created by the time this runs.
+#
+# The tap repo (gitlab.com/bart-turczynski/homebrew-tap) may not exist yet —
+# its creation is a human-approved step outside this pipeline's control, and
+# this job must NOT create it. If the clone fails because the repo is
+# missing, that shows up as a failed (but non-blocking) job with a clear
+# message, not a silent no-op and not a blocked release.
+release:mirror-tap:
+  stage: release
+  needs:
+    - release
+  allow_failure: true
+  rules:
+    # Skip for prerelease tags (e.g. v0.1.2-rc1): stable users must never
+    # pour an -rc bottle. Mirrors the equivalent
+    # `if: ${{ !contains(steps.ver.outputs.tag, '-') }}` guard in
+    # .github/workflows/release.yml.
+    - if: $CI_COMMIT_TAG =~ /[-]/
+      when: never
+    - when: on_success
+  script:
+    - |
+      set -euo pipefail
+
+      # Replaces the old TAP_PUSH_TOKEN GitHub Actions secret. Set this as a
+      # masked, protected GitLab CI/CD variable named HOMEBREW_TAP_TOKEN on
+      # the `unbreak` project (Settings > CI/CD > Variables): a GitLab
+      # personal or project access token scoped to bart-turczynski/homebrew-tap
+      # with the `write_repository` scope. See docs/RELEASING.md.
+      if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
+        echo "HOMEBREW_TAP_TOKEN CI/CD variable is not set — cannot mirror to homebrew-tap." >&2
+        echo "Create a personal or project access token scoped to" >&2
+        echo "bart-turczynski/homebrew-tap with the write_repository scope, then add it" >&2
+        echo "as the HOMEBREW_TAP_TOKEN CI/CD variable on this project (see docs/RELEASING.md)." >&2
+        exit 1
+      fi
+
+      if ! git clone "https://oauth2:${HOMEBREW_TAP_TOKEN}@gitlab.com/bart-turczynski/homebrew-tap.git" tap; then
+        echo "Failed to clone bart-turczynski/homebrew-tap." >&2
+        echo "Most likely cause: the tap repo does not exist yet (its creation is a" >&2
+        echo "human-approved step outside this pipeline). Create it, or if it already" >&2
+        echo "exists, check that HOMEBREW_TAP_TOKEN is valid and has write_repository" >&2
+        echo "scope on that project." >&2
+        exit 1
+      fi
+
+      dest="tap/Formula/unbreak.rb"
+      cp Formula/unbreak.rb "$dest"
+      # BSD sed (macOS runner). The bare `sha256 "<64hex>"` line is the source
+      # digest (the cellar lines are `sha256 cellar: …`, so the anchored
+      # pattern never touches them). Both cellar lines share one digest.
+      sed -i '' -E "s|^([[:space:]]*)sha256 \"[0-9a-fA-F]{64}\"|\1sha256 \"${SRC_SHA}\"|" "$dest"
+      # Use @ as the s-delimiter: the alternation's own `|` would otherwise
+      # be read as the delimiter (BSD sed: "parentheses not balanced").
+      sed -i '' -E "s@(sha256 cellar: :any_skip_relocation, (arm64_ventura|ventura):[[:space:]]*\")[0-9a-fA-F]{64}\"@\1${BOTTLE_SHA}\"@g" "$dest"
+      # Fail loudly if a digest didn't land (e.g. an upstream formula reshape):
+      grep -q "\"${SRC_SHA}\"" "$dest" || { echo "source sha not injected into tap formula" >&2; exit 1; }
+      grep -q "${BOTTLE_SHA}" "$dest" || { echo "bottle sha not injected into tap formula" >&2; exit 1; }
+      cd tap
+      git config user.name "gitlab-ci"
+      git config user.email "gitlab-ci@unbreak.invalid"
+      git add Formula/unbreak.rb
+      if git diff --cached --quiet; then
+        echo "Tap already at ${VERSION}; nothing to push."
+      else
+        git commit -m "unbreak ${VERSION}"
+        git push origin HEAD:main
+        echo "Mirrored unbreak ${VERSION} to bart-turczynski/homebrew-tap."
       fi
