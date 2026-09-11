@@ -87,6 +87,30 @@ Command Line Tools):
 curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash
 ```
 
+### As a Swift package dependency
+
+`UnbreakCore` is exported as a library product, so the repair pipeline can be used
+without the CLI. Add it by URL:
+
+```swift
+.package(url: "https://gitlab.com/bart-turczynski/unbreak.git", from: "0.7.2")
+```
+
+```swift
+.target(name: "YourTarget", dependencies: [
+    .product(name: "UnbreakCore", package: "unbreak"),
+])
+```
+
+Unlike `brew tap`, SwiftPM resolves any git URL, so the GitLab host needs no special
+form here — this is the ordinary one-argument syntax.
+
+The package is **not listed on the Swift Package Index**, and cannot be. Its stated
+requirements name no host, but the `validate.swift` gate behind submissions discards
+the URL's host and queries `api.github.com/repos/{owner}/{repository}`, so a GitLab
+URL resolves to nothing and validation fails. This affects discovery only —
+resolution by URL, as above, is unaffected.
+
 See [`docs/RELEASING.md`](docs/RELEASING.md) for the tap setup and release flow.
 
 ## Uninstall
