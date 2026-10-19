@@ -56,20 +56,17 @@ err() {
 
 # --- Preflight -------------------------------------------------------------
 [ "$(uname -s)" = "Darwin" ] || err "macOS only (this is a native macOS utility)."
+# need_swift <required> [found]
 need_swift() {
-  err "Swift 6.4 or newer is required${1:+ (found Swift $1)}. Install Xcode 27, or the
-    Command Line Tools 27 (Swift 6.4): xcode-select --install"
+  err "building $VERSION needs Swift $1 or newer${2:+ (found Swift $2)}. Install or update
+    Xcode, or update the Command Line Tools in Software Update (xcode-select --install
+    if none are installed)."
 }
-command -v swift >/dev/null 2>&1 || need_swift
+command -v swift >/dev/null 2>&1 ||
+  err "Swift is required. Install Xcode or the Command Line Tools: xcode-select --install"
 # `swift --version` prints e.g. "Apple Swift version 6.4 (swiftlang-…)"; keep major.minor.
 SWIFT_VERSION="$(swift --version 2>/dev/null |
   sed -nE 's/.*Swift version ([0-9]+)\.([0-9]+).*/\1.\2/p' | head -n 1)" || true
-SWIFT_MAJOR="${SWIFT_VERSION%%.*}"
-SWIFT_MINOR="${SWIFT_VERSION#*.}"
-if [ -z "$SWIFT_VERSION" ] || [ "$SWIFT_MAJOR" -lt 6 ] ||
-  { [ "$SWIFT_MAJOR" -eq 6 ] && [ "$SWIFT_MINOR" -lt 4 ]; }; then
-  need_swift "$SWIFT_VERSION"
-fi
 command -v curl >/dev/null 2>&1 || err "curl is required."
 
 # Choose an install prefix we can actually write to.
@@ -93,6 +90,18 @@ curl -fsSL "$TARBALL" -o "$WORKDIR/src.tar.gz" ||
 tar -xzf "$WORKDIR/src.tar.gz" -C "$WORKDIR"
 SRCDIR="$(find "$WORKDIR" -maxdepth 1 -type d -name 'unbreak-*' | head -n1)"
 [ -n "$SRCDIR" ] || err "unexpected archive layout."
+
+# The release being built, not this script, sets the Swift floor: its
+# Package.swift opens with e.g. "// swift-tools-version: 6.3".
+REQUIRED="$(sed -nE '1s#^// *swift-tools-version: *([0-9]+)\.([0-9]+).*#\1.\2#p' \
+  "$SRCDIR/Package.swift")"
+[ -n "$REQUIRED" ] || err "could not read swift-tools-version from $VERSION's Package.swift."
+[ -n "$SWIFT_VERSION" ] || need_swift "$REQUIRED"
+if [ "${SWIFT_VERSION%%.*}" -lt "${REQUIRED%%.*}" ] ||
+  { [ "${SWIFT_VERSION%%.*}" -eq "${REQUIRED%%.*}" ] &&
+    [ "${SWIFT_VERSION#*.}" -lt "${REQUIRED#*.}" ]; }; then
+  need_swift "$REQUIRED" "$SWIFT_VERSION"
+fi
 
 echo "unbreak install: building (release)"
 (cd "$SRCDIR" && swift build -c release) || err "build failed."
