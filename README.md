@@ -17,9 +17,9 @@ repairs exactly the copied fragment. (Background: PRD v2 §1.)
 
 ## Quick start (teams)
 
-Have **Swift 6.4** installed first — Xcode 27 or the Command Line Tools 27
-(`xcode-select --install`) — the formula builds from source, so without them the
-install fails. Then:
+On macOS 13 or later the formula pours a prebuilt bottle, so no Swift toolchain
+is needed. Where no bottle matches, Homebrew builds from source, which needs
+**Swift 6.4** (Xcode 27 or the Command Line Tools 27). Then:
 
 ```sh
 brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
@@ -81,8 +81,9 @@ formula instead of the whole tap, use
 single canonical way to turn the watcher on; it also writes the terminal allowlist
 the watcher needs).
 
-Without Homebrew, the fallback installer builds from source (needs Swift 6.4:
-Xcode 27 or the Command Line Tools 27):
+Without Homebrew, the fallback installer builds from source. It needs the Swift
+version the release declares in its `Package.swift`, and checks that before
+building:
 
 ```sh
 curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash
