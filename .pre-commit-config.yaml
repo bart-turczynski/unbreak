@@ -5,10 +5,13 @@ repos:
       - id: check-added-large-files
         args: ['--maxkb=5120']
       - id: end-of-file-fixer
+        exclude: ^Tests/CorpusTests/Fixtures/  # byte-exact corpus inputs
       - id: trailing-whitespace
+        exclude: ^Tests/CorpusTests/Fixtures/  # byte-exact corpus inputs
       - id: check-merge-conflict
       - id: check-yaml
       - id: mixed-line-ending
+        exclude: ^Tests/CorpusTests/Fixtures/  # byte-exact corpus inputs
       - id: check-case-conflict
   - repo: local
     hooks:
