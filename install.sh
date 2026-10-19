@@ -56,9 +56,20 @@ err() {
 
 # --- Preflight -------------------------------------------------------------
 [ "$(uname -s)" = "Darwin" ] || err "macOS only (this is a native macOS utility)."
-command -v swift >/dev/null 2>&1 ||
-  err "the Swift toolchain is required. Install the Xcode Command Line Tools:
-    xcode-select --install"
+need_swift() {
+  err "Swift 6.4 or newer is required${1:+ (found Swift $1)}. Install Xcode 27, or the
+    Command Line Tools 27 (Swift 6.4): xcode-select --install"
+}
+command -v swift >/dev/null 2>&1 || need_swift
+# `swift --version` prints e.g. "Apple Swift version 6.4 (swiftlang-…)"; keep major.minor.
+SWIFT_VERSION="$(swift --version 2>/dev/null |
+  sed -nE 's/.*Swift version ([0-9]+)\.([0-9]+).*/\1.\2/p' | head -n 1)" || true
+SWIFT_MAJOR="${SWIFT_VERSION%%.*}"
+SWIFT_MINOR="${SWIFT_VERSION#*.}"
+if [ -z "$SWIFT_VERSION" ] || [ "$SWIFT_MAJOR" -lt 6 ] ||
+  { [ "$SWIFT_MAJOR" -eq 6 ] && [ "$SWIFT_MINOR" -lt 4 ]; }; then
+  need_swift "$SWIFT_VERSION"
+fi
 command -v curl >/dev/null 2>&1 || err "curl is required."
 
 # Choose an install prefix we can actually write to.
@@ -85,7 +96,10 @@ SRCDIR="$(find "$WORKDIR" -maxdepth 1 -type d -name 'unbreak-*' | head -n1)"
 
 echo "unbreak install: building (release)"
 (cd "$SRCDIR" && swift build -c release) || err "build failed."
-BUILT="$SRCDIR/.build/release/unbreak"
+# The products directory differs between toolchains; ask SwiftPM, same flags.
+BINPATH="$(cd "$SRCDIR" && swift build -c release --show-bin-path)" ||
+  err "could not locate the build output."
+BUILT="$BINPATH/unbreak"
 [ -x "$BUILT" ] || err "build did not produce a unbreak binary."
 
 # --- Install ---------------------------------------------------------------

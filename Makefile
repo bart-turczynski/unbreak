@@ -8,11 +8,14 @@
 # Swift 6.4 builds with the Swift Build engine by default, which on the
 # standalone Command Line Tools also misses the TestingMacros compiler plugin
 # (`@Test`/`@Suite` fail with "plugin for module 'TestingMacros' not found"),
-# so its plugin directory is passed too.
+# so its plugin directory is passed too. The plugin lives in the toolchain, not
+# the developer dir, so its path comes from the `swift` that xcrun resolves
+# (which honours TOOLCHAINS); the compiler ignores a plugin path that doesn't
+# exist.
 DEVDIR := $(shell xcode-select -p)
 FWK := $(DEVDIR)/Library/Developer/Frameworks
 LIBT := $(DEVDIR)/Library/Developer/usr/lib
-TPLUG := $(DEVDIR)/usr/lib/swift/host/plugins/testing
+TPLUG := $(dir $(shell xcrun --find swift))../lib/swift/host/plugins/testing
 TEST_FLAGS := -Xswiftc -F -Xswiftc $(FWK) \
 	-Xswiftc -plugin-path -Xswiftc $(TPLUG) \
 	-Xlinker -F -Xlinker $(FWK) \

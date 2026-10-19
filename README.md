@@ -17,8 +17,9 @@ repairs exactly the copied fragment. (Background: PRD v2 §1.)
 
 ## Quick start (teams)
 
-Have the **Xcode Command Line Tools** installed first (`xcode-select --install`) —
-the formula builds from source, so without them the install fails. Then:
+Have **Swift 6.4** installed first — Xcode 27 or the Command Line Tools 27
+(`xcode-select --install`) — the formula builds from source, so without them the
+install fails. Then:
 
 ```sh
 brew tap bart-turczynski/tap https://gitlab.com/bart-turczynski/homebrew-tap.git
@@ -80,8 +81,8 @@ formula instead of the whole tap, use
 single canonical way to turn the watcher on; it also writes the terminal allowlist
 the watcher needs).
 
-Without Homebrew, the fallback installer builds from source (needs the Xcode
-Command Line Tools):
+Without Homebrew, the fallback installer builds from source (needs Swift 6.4:
+Xcode 27 or the Command Line Tools 27):
 
 ```sh
 curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | bash
@@ -182,11 +183,11 @@ docs/               product spec + release flow
 
 ## Develop
 
-Requires the Swift toolchain (Xcode Command Line Tools).
+Requires Swift 6.4 (Xcode 27 or the Command Line Tools 27).
 
 ```sh
 make build      # swift build
-make test       # swift test (+ swift-testing framework paths)
+make test       # swift test (+ swift-testing framework and macro-plugin paths)
 make fmt        # format in place (needs swift-format)
 make lint       # static analysis (needs swiftlint)
 ```
@@ -194,7 +195,7 @@ make lint       # static analysis (needs swiftlint)
 > Use `make test`, not bare `swift test`: on the standalone Command Line Tools
 > (no full Xcode) the swift-testing framework needs its search/runtime paths
 > and its macro plugin passed explicitly, which the Makefile derives from
-> `xcode-select -p`.
+> `xcode-select -p` and the toolchain's `swift` (`xcrun --find swift`).
 
 Optional tools:
 
