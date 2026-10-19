@@ -27,8 +27,8 @@
 #     that still apply.
 #
 # Swift toolchain note (carried over from CI): Package.swift declares
-# `swift-tools-version: 6.3` and the suite uses the `Testing` framework
-# (Swift 6+), so the runner needs a Swift 6.3+ toolchain (Xcode 26.x) —
+# `swift-tools-version: 6.4` and the suite uses the `Testing` framework
+# (Swift 6+), so the runner needs a Swift 6.4+ toolchain (Xcode 27.x) —
 # whoever provisions the self-hosted runner must match this.
 
 workflow:
@@ -57,7 +57,8 @@ test:
   stage: test
   script:
     # NEVER bare `swift test` here: swift-testing ships as a framework and
-    # standalone Command Line Tools don't pass its search/runtime paths.
+    # standalone Command Line Tools don't pass its search/runtime paths or
+    # (under Swift 6.4's Swift Build engine) its TestingMacros plugin path.
     # `make test` adds them via TEST_FLAGS (see Makefile) — this mirrors the
     # local pre-push gate exactly.
     - make test

@@ -10,8 +10,8 @@
 # Installs come from a prebuilt **bottle** (see the `bottle do` block) so users
 # need no Swift toolchain. The `install` recipe below still builds from source —
 # it is both how the release workflow *produces* the bottle and the automatic
-# fallback for any platform without a matching bottle (then the Xcode Command
-# Line Tools are required). On each tagged release, bump `version`, `url`, and
+# fallback for any platform without a matching bottle (then Swift 6.4 is required:
+# Xcode 27 or the Command Line Tools 27). On each tagged release, bump `version`, `url`, and
 # `sha256` (source tarball) together, then paste the workflow-generated bottle
 # block — see docs/RELEASING.md.
 class Unbreak < Formula
@@ -65,12 +65,15 @@ class Unbreak < Formula
     # (arm64 + x86_64) binary so the one bottle this recipe produces serves both
     # Mac architectures — Homebrew reuses a bottle only within an arch, so without
     # the x86_64 slice Intel Macs fall back to the source build. SwiftPM runs the
-    # `lipo` merge itself for a multi-`--arch` build; the fat binary lands under
-    # `.build/apple/Products/Release` (not the single-arch `.build/release`). Both
-    # slices target Package.swift's .macOS(.v13) floor.
-    system "swift", "build", "--disable-sandbox", "-c", "release",
-           "--arch", "arm64", "--arch", "x86_64"
-    bin.install ".build/apple/Products/Release/unbreak"
+    # `lipo` merge itself for a multi-`--arch` build. Where the fat binary lands
+    # depends on the toolchain (`.build/apple/Products/Release` before Swift 6.4,
+    # `.build/out/Products/Release` from 6.4), so ask SwiftPM with the same flags
+    # instead of naming a path. Both slices target Package.swift's .macOS(.v13)
+    # floor.
+    args = ["--disable-sandbox", "-c", "release", "--arch", "arm64", "--arch", "x86_64"]
+    system "swift", "build", *args
+    bin_path = Utils.safe_popen_read("swift", "build", *args, "--show-bin-path").chomp
+    bin.install "#{bin_path}/unbreak"
   end
 
   # No `service do` block on purpose (§9). The watcher is enabled solely through

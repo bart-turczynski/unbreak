@@ -89,7 +89,7 @@ macOS runner** tagged `macos` — GitLab's hosted `saas-macos-*` images are
 Premium/Ultimate only, and this project is on the `free` tier (see the header
 comment in [`.gitlab-ci.yml`](../.gitlab-ci.yml)). Registering that runner
 (`gitlab-runner register --tag-list macos ...`) and keeping its Swift toolchain
-at 6.3+ (Xcode 26.x, matching `Package.swift`'s `swift-tools-version`) is a
+at 6.4+ (Xcode 27.x, matching `Package.swift`'s `swift-tools-version`) is a
 **human, out-of-band step** — no file in this repo registers a runner, installs a
 launchd service, or otherwise provisions one.
 
