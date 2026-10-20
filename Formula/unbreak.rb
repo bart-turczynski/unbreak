@@ -48,13 +48,13 @@ class Unbreak < Formula
     # path must stop at the version. Project is addressed by numeric id (85027527)
     # because the API path does not accept the namespaced path unencoded.
     root_url "https://gitlab.com/api/v4/projects/85027527/packages/generic/unbreak/0.8.0"
-    # Real v0.7.2 bottle digest, produced by the release pipeline. On the NEXT bump keep
+    # Real v0.8.0 bottle digest, produced by the release pipeline. On the NEXT bump keep
     # valid 64-hex values here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
     # failed the first tagged build). Both lines share one digest (identical
     # universal tarball under two arch tags).
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "b8b28550eaed6f5d19e1a03dedd2b72f2acd2ee81acc757b4cb0e98fce905f3a"
-    sha256 cellar: :any_skip_relocation, ventura:       "b8b28550eaed6f5d19e1a03dedd2b72f2acd2ee81acc757b4cb0e98fce905f3a"
+    sha256 cellar: :any_skip_relocation, arm64_ventura: "d186732143cb2e4aa98c461b1527599233a1dbfbf96917fb2d608e0a248fb658"
+    sha256 cellar: :any_skip_relocation, ventura:       "d186732143cb2e4aa98c461b1527599233a1dbfbf96917fb2d608e0a248fb658"
   end
 
   depends_on :macos
