@@ -112,6 +112,11 @@ the formula bump comes first, then the tag, then the pipeline fills in the bottl
    Change `version`, `url`, and `sha256` together. The explicit `version` means
    users only update on a bump, not on every `brew update`.
 
+   The version also lives in three more places; bump them in the same commit.
+   The bottle block's `root_url` ends in the version, and the tap mirror copies
+   it unchanged. `unbreakVersion` in `Sources/CLI/Version.swift` is what
+   `unbreak --version` prints. The README's SwiftPM example names it in `from:`.
+
 2. **Bump `install.sh`'s `UNBREAK_VERSION` default in the SAME commit.** Find the
    line (anchor on the string, not a line number):
 

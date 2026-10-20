@@ -11,13 +11,13 @@
 #
 # Overridable via env:
 #   UNBREAK_REPO     owner/repo to fetch from        (default: bart-turczynski/unbreak)
-#   UNBREAK_VERSION  git tag to install              (default: v0.7.2)
+#   UNBREAK_VERSION  git tag to install              (default: v0.8.0)
 #   UNBREAK_PREFIX   install prefix; binary -> $PREFIX/bin/unbreak
 #                  (default: /usr/local if writable, else ~/.local)
 set -euo pipefail
 
 REPO="${UNBREAK_REPO:-bart-turczynski/unbreak}"
-VERSION="${UNBREAK_VERSION:-v0.7.2}"
+VERSION="${UNBREAK_VERSION:-v0.8.0}"
 ENABLE_WATCH=0
 for arg in "$@"; do
   case "$arg" in
@@ -37,7 +37,7 @@ Options:
 
 Env overrides:
   UNBREAK_REPO       owner/repo to fetch from   (default: bart-turczynski/unbreak)
-  UNBREAK_VERSION    git tag to install         (default: v0.7.2)
+  UNBREAK_VERSION    git tag to install         (default: v0.8.0)
   UNBREAK_PREFIX     install prefix             (default: /usr/local or ~/.local)
 USAGE
       exit 0
