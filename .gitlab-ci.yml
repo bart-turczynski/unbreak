@@ -138,6 +138,24 @@ release:
       url="https://gitlab.com/${CI_PROJECT_PATH}/-/archive/${TAG}/${CI_PROJECT_NAME}-${TAG}.tar.gz"
       src_sha="$(curl -fsSL "$url" | shasum -a 256 | awk '{print $1}')"
       echo "Source tarball sha256: ${src_sha}"
+      # The runner is a shell executor on a workstation, so Homebrew state
+      # outlives the job: the v0.8.0 release left local/unbreak tapped and
+      # unbreak installed, which makes the next `brew tap-new` fail. Clear
+      # what an earlier run left, refuse to touch an unbreak installed from
+      # any other tap (the build installs one, and cleanup must not remove a
+      # user's copy), and clean up again when the job exits.
+      cleanup() {
+        if grep -qsE '"tap": *"local/unbreak"' "$(brew --cellar)"/unbreak/*/INSTALL_RECEIPT.json; then
+          brew uninstall --force unbreak
+        fi
+        brew untap --force local/unbreak 2>/dev/null || true
+      }
+      cleanup
+      if [ -d "$(brew --cellar)/unbreak" ]; then
+        echo "unbreak is installed on this runner from another tap. The release builds its bottle by installing unbreak, so uninstall it there first." >&2
+        exit 1
+      fi
+      trap cleanup EXIT
       brew tap-new local/unbreak --no-git
       dest="$(brew --repository local/unbreak)/Formula/unbreak.rb"
       cp Formula/unbreak.rb "$dest"
