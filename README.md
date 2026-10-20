@@ -95,7 +95,7 @@ curl -fsSL https://gitlab.com/bart-turczynski/unbreak/-/raw/main/install.sh | ba
 without the CLI. Add it by URL:
 
 ```swift
-.package(url: "https://gitlab.com/bart-turczynski/unbreak.git", from: "0.7.2")
+.package(url: "https://gitlab.com/bart-turczynski/unbreak.git", from: "0.8.0")
 ```
 
 ```swift

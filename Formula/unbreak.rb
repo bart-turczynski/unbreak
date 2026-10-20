@@ -19,8 +19,8 @@ class Unbreak < Formula
   homepage "https://gitlab.com/bart-turczynski/unbreak"
   # Source tarball for the tagged release. `version` is explicit so users update
   # only on a bump, not on every tap refresh.
-  url "https://gitlab.com/bart-turczynski/unbreak/-/archive/v0.7.2/unbreak-v0.7.2.tar.gz"
-  version "0.7.2"
+  url "https://gitlab.com/bart-turczynski/unbreak/-/archive/v0.8.0/unbreak-v0.8.0.tar.gz"
+  version "0.8.0"
   # Digest of the v0.2.0 source tarball (see docs/RELEASING.md):
   #   curl -fsSL .../v0.2.0.tar.gz | shasum -a 256
   # NOTE: in *this* repo the formula ships inside the tarball it points at, so a
@@ -47,7 +47,7 @@ class Unbreak < Formula
     # Homebrew appends "<name>-<version>.<tag>.bottle.tar.gz" to root_url, so the
     # path must stop at the version. Project is addressed by numeric id (85027527)
     # because the API path does not accept the namespaced path unencoded.
-    root_url "https://gitlab.com/api/v4/projects/85027527/packages/generic/unbreak/0.7.2"
+    root_url "https://gitlab.com/api/v4/projects/85027527/packages/generic/unbreak/0.8.0"
     # Real v0.7.2 bottle digest, produced by the release pipeline. On the NEXT bump keep
     # valid 64-hex values here even before rebuilding: the workflow's `brew install
     # --build-bottle` parses this block (the v0.3.0 lesson — a bad placeholder
